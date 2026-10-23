@@ -70,6 +70,10 @@ namespace mdevs
         private string m_docFolder;
         /// <summary>画像の URL に入れる世代番号（ファイルを開き直すたびに増やす。SetDocumentFolder 参照）。</summary>
         private int m_docGeneration;
+        /// <summary>キー入力を Visual Studio に先に渡しているか（WebView2 の AllowHostInputProcessing。CreateControllerOptions
+        /// 参照）。渡している時は、Visual Studio のショートカットは Visual Studio がそのまま処理し、編集画面で使うキーは
+        /// 編集ペイン（MarkdownEditorPane.PreProcessMessage）が編集画面に渡す。</summary>
+        private bool m_hostInputProcessing;
 
         /// <summary>画面側で、保存していない変更の有無が変わった時（引数は変更があるか）。</summary>
         public event Action<bool> DirtyChanged;
@@ -86,6 +90,9 @@ namespace mdevs
             Children.Add(m_webView);
             Loaded += OnLoaded;
             m_webView.PreviewKeyDown += OnPreviewKeyDown;
+            // Visual Studio の配色（ダークテーマ等）に合わせる。配色を変えた時も合わせ直す
+            ApplyThemeBackground();
+            Microsoft.VisualStudio.PlatformUI.VSColorTheme.ThemeChanged += OnThemeChanged;
         }
 
         /// <summary>開いているファイルのパス。</summary>
@@ -152,9 +159,12 @@ namespace mdevs
         private async Task InitializeWebViewAsync()
         {
             CoreWebView2Environment env = await GetEnvironmentAsync();
-            await m_webView.EnsureCoreWebView2Async(env);
+            CoreWebView2ControllerOptions options = CreateControllerOptions(env);
+            await m_webView.EnsureCoreWebView2Async(env, options);
+            m_hostInputProcessing = null != options;
             CoreWebView2 core = m_webView.CoreWebView2;
-            Log.Write($"WebView2 の準備ができました（ランタイム {env.BrowserVersionString}）。");
+            Log.Write($"WebView2 の準備ができました（ランタイム {env.BrowserVersionString}、" +
+                $"SDK {typeof(CoreWebView2).Assembly.GetName().Version}、キー入力を Visual Studio に先に渡す：{m_hostInputProcessing}）。");
 
             // 画面側（web フォルダ）のファイルを更新した時に、古いファイルがブラウザのキャッシュから使われないよう、
             // Visual Studio を起動してから最初の1回だけキャッシュを消す
@@ -189,7 +199,140 @@ namespace mdevs
             {
                 Log.Write($"WebView2 のプロセスが異常終了：種類={e.ProcessFailedKind} 理由={e.Reason} 終了コード={e.ExitCode}");
             };
+            // 最初の配色（画面側の main.js が、読み込んですぐに合わせる。画面が一瞬白く表示されないように）
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(
+                $"window.__mdevsTheme = {JsonConvert.SerializeObject(CreateThemeMessage())};");
             core.Navigate($"https://{APP_HOST}/index.html");
+        }
+
+        /// <summary>
+        /// WebView2 のコントローラーの設定を作る。キー入力を、WebView2（画面側）より先に Visual Studio に渡す
+        /// （AllowHostInputProcessing）。こうすると、Ctrl+S・F5・Ctrl+Shift+B・Ctrl+Tab 等の Visual Studio のショートカットが、
+        /// Visual Studio の設定（ツール→オプション→キーボード）どおりに動く。編集画面で使うキー（文字・矢印・Ctrl+Z 等）は、
+        /// 編集ペインが Visual Studio より先に受け取って編集画面に渡す（MarkdownEditorPane.PreProcessMessage）。
+        /// </summary>
+        /// <param name="a_env">WebView2 の環境。</param>
+        /// <returns>コントローラーの設定。使えない時（古い WebView2 の DLL が読み込まれている等）は null（今までどおり、
+        /// キー入力は WebView2 が先に受け取る。OnPreviewKeyDown 参照）。</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static CoreWebView2ControllerOptions CreateControllerOptions(CoreWebView2Environment a_env)
+        {
+            try
+            {
+                return CreateControllerOptionsCore(a_env);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("キー入力を Visual Studio に先に渡す設定（AllowHostInputProcessing）を使えませんでした", ex);
+                return null;
+            }
+        }
+
+        /// <summary>CreateControllerOptions の本体（WebView2 の DLL が古いと、このメソッドを呼ぶ時に例外になるため分けてある）。</summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static CoreWebView2ControllerOptions CreateControllerOptionsCore(CoreWebView2Environment a_env)
+        {
+            CoreWebView2ControllerOptions options = a_env.CreateCoreWebView2ControllerOptions();
+            options.AllowHostInputProcessing = true;
+            return options;
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool IsChild(IntPtr a_parent, IntPtr a_window);
+
+        /// <summary>指定のウィンドウが、この編集画面（WebView2）か、その中のウィンドウか（キー入力の宛先の判定。KeyboardRouter）。</summary>
+        /// <param name="a_window">ウィンドウのハンドル。</param>
+        public bool ContainsWindow(IntPtr a_window)
+        {
+            if (IntPtr.Zero == a_window)
+            {
+                return false;
+            }
+            IntPtr root = ((System.Windows.Interop.HwndHost)m_webView).Handle;
+            return IntPtr.Zero != root && (root == a_window || IsChild(root, a_window));
+        }
+
+        // ===== Visual Studio の配色（ダークテーマ等） =====
+
+        /// <summary>Visual Studio の配色の色を取り出す。</summary>
+        /// <param name="a_key">色の種類（EnvironmentColors の …ColorKey）。</param>
+        /// <returns>色。取り出せない時は Color.Empty。</returns>
+        private static System.Drawing.Color ThemedColor(Microsoft.VisualStudio.Shell.ThemeResourceKey a_key)
+        {
+            try
+            {
+                return Microsoft.VisualStudio.PlatformUI.VSColorTheme.GetThemedColor(a_key);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"配色の色を取り出せませんでした（{a_key}）", ex);
+                return System.Drawing.Color.Empty;
+            }
+        }
+
+        /// <summary>色を #rrggbb にする（取り出せなかった色は null。画面側は既定の色を使う）。</summary>
+        private static string ToHex(System.Drawing.Color a_color)
+        {
+            return a_color.IsEmpty ? null : $"#{a_color.R:x2}{a_color.G:x2}{a_color.B:x2}";
+        }
+
+        /// <summary>
+        /// 画面側に送る配色（theme のメッセージ。web\js\main.js の applyTheme）。ツールウィンドウの背景が暗い時は
+        /// ダークテーマとして、背景・文字・枠線の色と、右クリックのメニューの色（Visual Studio のメニューと同じ）を送る。
+        /// </summary>
+        private static object CreateThemeMessage()
+        {
+            System.Drawing.Color bg = ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.ToolWindowBackgroundColorKey);
+            // 明るさ（0～255）が半分より下なら暗い配色
+            bool dark = !bg.IsEmpty && (bg.R * 299 + bg.G * 587 + bg.B * 114) / 1000 < 128;
+            return new
+            {
+                cmd = "theme",
+                dark,
+                bg = ToHex(bg),
+                fg = ToHex(ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.ToolWindowTextColorKey)),
+                border = ToHex(ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.ToolWindowBorderColorKey)),
+                menuBg = ToHex(ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.CommandBarMenuBackgroundGradientBeginColorKey)),
+                menuFg = ToHex(ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.CommandBarTextActiveColorKey)),
+                menuBorder = ToHex(ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.CommandBarMenuBorderColorKey)),
+                menuHover = ToHex(ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.CommandBarMenuItemMouseOverColorKey)),
+                menuHoverFg = ToHex(ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.CommandBarMenuItemMouseOverTextColorKey)),
+                menuSep = ToHex(ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.CommandBarMenuSeparatorColorKey)),
+            };
+        }
+
+        /// <summary>画面を表示する前・読み込み中に見える背景（WebView2 と、この中身の背景）を、Visual Studio の配色に合わせる
+        /// （ダークテーマの時に、白い背景が一瞬見えないように）。</summary>
+        private void ApplyThemeBackground()
+        {
+            System.Drawing.Color bg = ThemedColor(Microsoft.VisualStudio.PlatformUI.EnvironmentColors.ToolWindowBackgroundColorKey);
+            if (bg.IsEmpty)
+            {
+                return;
+            }
+            bg = System.Drawing.Color.FromArgb(255, bg.R, bg.G, bg.B); // WebView2 の背景は不透明の色だけ
+            try
+            {
+                m_webView.DefaultBackgroundColor = bg;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("WebView2 の背景の色を設定できませんでした", ex);
+            }
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(bg.R, bg.G, bg.B));
+        }
+
+        /// <summary>Visual Studio の配色が変わった時：背景と、画面側の配色を合わせ直す。</summary>
+        private void OnThemeChanged(Microsoft.VisualStudio.PlatformUI.ThemeChangedEventArgs a_args)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ApplyThemeBackground();
+                if (m_ready)
+                {
+                    Post(CreateThemeMessage());
+                }
+            }));
         }
 
         // ===== 画面側とのメッセージ =====
@@ -238,6 +381,7 @@ namespace mdevs
             {
                 case "ready":
                     m_ready = true;
+                    Post(CreateThemeMessage());
                     Post(new { cmd = "init", debug = false, tempDir = m_tempImageDir });
                     if (null != m_currentPath)
                     {
@@ -300,6 +444,12 @@ namespace mdevs
         /// </summary>
         private void OnPreviewKeyDown(object a_sender, KeyEventArgs a_args)
         {
+            if (m_hostInputProcessing)
+            {
+                // キー入力を Visual Studio に先に渡している時は、Visual Studio のショートカットは Visual Studio が処理済み
+                // （ここで同じコマンドを実行すると2回になる）
+                return;
+            }
             Key key = Key.System == a_args.Key ? a_args.SystemKey : a_args.Key;
             bool ctrl = IsKeyDown(0x11);
             bool shift = IsKeyDown(0x10);
@@ -1078,6 +1228,7 @@ namespace mdevs
         /// <summary>WebView2 を閉じ、貼り付けた画像の一時フォルダを削除する。</summary>
         public void Dispose()
         {
+            Microsoft.VisualStudio.PlatformUI.VSColorTheme.ThemeChanged -= OnThemeChanged;
             try
             {
                 m_webView.Dispose();

@@ -17,8 +17,9 @@
     <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="18.9.820" />
     <!-- 編集画面を表示する WebView2（mdew と同じ版）。DLL は拡張機能に同梱する。GeneratePathProperty：下の
-         WebView2Loader.dll の場所（$(PkgMicrosoft_Web_WebView2)）を使うため -->
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" GeneratePathProperty="true" />
+         WebView2Loader.dll の場所（$(PkgMicrosoft_Web_WebView2)）を使うため。
+         1.0.4129.50：キー入力を Visual Studio に先に渡す設定（AllowHostInputProcessing。MarkdownWebHost 参照）を使う -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4129.50" GeneratePathProperty="true" />
   </ItemGroup>
   <ItemGroup>
     <!-- 編集ペイン（MarkdownWebHost）は WPF のコントロール -->
@@ -27,6 +28,15 @@
     <Reference Include="WindowsBase" />
     <Reference Include="System.Xaml" />
   </ItemGroup>
+  <!-- 拡張機能に入れない DLL：WebView2 の WinForms 用の DLL（使わない）と、NuGet が runtimes\win-x86・win-arm64・win-x64 に
+       コピーする WebView2Loader.dll（64bit 用だけを、下の Content で拡張機能のフォルダの直下に入れる） -->
+  <Target Name="RemoveUnusedWebView2Files" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <ReferencePath Remove="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.WinForms'" />
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)"
+                               Condition="'%(Filename)' == 'Microsoft.Web.WebView2.WinForms' Or '%(Filename)' == 'WebView2Loader'" />
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <!-- 画面側（HTML・JavaScript・CSS）。ビルドせずにそのまま拡張機能の web フォルダに入れる -->
     <None Remove="web\**" />

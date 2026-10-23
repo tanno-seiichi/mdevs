@@ -87,6 +87,8 @@ namespace mdevs
             m_host.OpenFileRequested += OpenFileInVisualStudio;
             m_host.CommandRequested += PostCommand;
             Content = m_host;
+            // 編集画面で使うキーを、Visual Studio のショートカットより先に編集画面に渡す
+            KeyboardRouter.Install();
         }
 
         /// <summary>閉じる時の後始末（WebView2 を閉じ、一時フォルダを消す）。</summary>
@@ -96,10 +98,39 @@ namespace mdevs
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
                 s_openPanes.Remove(this);
+                if (0 == s_openPanes.Count)
+                {
+                    KeyboardRouter.Uninstall();
+                }
                 StopWatchingFile();
                 m_host.Dispose();
             }
             base.Dispose(a_disposing);
+        }
+
+        // ===== キー入力の振り分け（KeyboardRouter） =====
+
+        /// <summary>指定のウィンドウ（キー入力の宛先）が、開いている編集ペインのどれかの編集画面の中なら、その編集ペインを返す。</summary>
+        /// <param name="a_window">ウィンドウのハンドル。</param>
+        /// <returns>編集ペイン。無ければ null。</returns>
+        internal static MarkdownEditorPane FindByWindow(IntPtr a_window)
+        {
+            foreach (MarkdownEditorPane pane in s_openPanes)
+            {
+                if (pane.m_host.ContainsWindow(a_window))
+                {
+                    return pane;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>Visual Studio のコマンドを、キー入力の処理が終わった後に実行する（KeyboardRouter から。Ctrl+F・Ctrl+H 等）。</summary>
+        /// <param name="a_group">コマンドのグループ。</param>
+        /// <param name="a_id">コマンドの番号。</param>
+        internal void PostVsCommand(Guid a_group, uint a_id)
+        {
+            PostCommand(a_group, a_id);
         }
 
         // ===== 未保存の印・保存の要求 =====

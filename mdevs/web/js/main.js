@@ -1852,6 +1852,30 @@ window.addEventListener('keydown', (e) => {
   if ('s' === k) { e.preventDefault(); send({ cmd: 'save', saveAs: e.shiftKey }); }
 });
 
+/** ホストから届く Visual Studio の配色の値と、それを入れる CSS の変数（app.css の body.theme-dark）。 */
+const THEME_VARS = {
+  bg: '--vs-bg', fg: '--vs-fg', border: '--vs-border',
+  menuBg: '--vs-menu-bg', menuFg: '--vs-menu-fg', menuBorder: '--vs-menu-border',
+  menuHover: '--vs-menu-hover', menuHoverFg: '--vs-menu-hover-fg', menuSep: '--vs-menu-sep',
+};
+
+/**
+ * mdevs：Visual Studio の配色に合わせる。暗い配色の時は body に theme-dark を付け、背景・文字・メニューの色を
+ * Visual Studio の色にする（明るい配色の時は mdew と同じ見た目のまま）。
+ * @param {{dark: boolean, bg?: string, fg?: string}} a_theme ホストからの theme のメッセージ（色は #rrggbb）
+ */
+function applyTheme(a_theme) {
+  const style = document.documentElement.style;
+  for (const [name, cssVar] of Object.entries(THEME_VARS)) {
+    if (a_theme[name]) style.setProperty(cssVar, a_theme[name]);
+    else style.removeProperty(cssVar);
+  }
+  document.body.classList.toggle('theme-dark', !!a_theme.dark);
+}
+// 最初の配色：ホストが文書を作る時に入れておく（MarkdownWebHost の InitializeWebViewAsync）。画面が一瞬白く表示されない
+// よう、theme のメッセージを待たずに合わせる
+if (window.__mdevsTheme) applyTheme(window.__mdevsTheme);
+
 /**
  * ファイルを開くのを待っている要求があれば、結果を渡す。
  * @param {string|null} a_path 開いたファイルのパス
@@ -1996,6 +2020,9 @@ if (host) {
     } else if ('focus' === msg.cmd) {
       // 起動直後：ウィンドウが表示されたら、すぐに書き始められるよう編集領域にカーソルを置く
       editor.focus();
+    } else if ('theme' === msg.cmd) {
+      // mdevs：Visual Studio の配色（起動時と、Visual Studio の配色を変えた時に届く）
+      applyTheme(msg);
     } else if ('init' === msg.cmd) {
       // 起動直後：ホストの設定。Debug ビルドの時は、停止・入力遅延の回数を数えて表示する
       state.tempDir = msg.tempDir || null;

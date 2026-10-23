@@ -333,3 +333,80 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 /* ===== mdevs（Visual Studio の中で使う時）：メニューバー・フォルダビューは使わない（Visual Studio のものを使う） ===== */
 #menubar, #folder, #folder-splitter, #status-folder { display: none !important; }
+
+/* ===== mdevs：ダークテーマ（Visual Studio の配色が暗い時。ホストが theme で知らせる。main.js の applyTheme） =====
+   --vs-* はホストが Visual Studio の配色から送ってくる色（届かない時は括弧内の色）。PDF の印刷用の文書（#print-doc）は対象外 */
+body.theme-dark {
+  color-scheme: dark; /* スクロールバー・チェックボックス・入力欄も暗い色にする */
+  --bg: var(--vs-bg, #1f1f1f);
+  --panel-bg: color-mix(in srgb, var(--bg) 88%, #ffffff);
+  --hover-bg: color-mix(in srgb, var(--bg) 78%, #ffffff);
+  --line: var(--vs-border, #3f3f46);
+  --pane-bg: var(--panel-bg);
+  --code-bg: color-mix(in srgb, var(--bg) 85%, #ffffff);
+  --code-block-bg: color-mix(in srgb, var(--bg) 90%, #ffffff);
+  --code-border: #4a4a4f;
+  --rule: #4a4a4f; /* 見出しの下・横線・引用の線 */
+  --selection-bg: #264f78;
+  --link: #4daafc;
+  --vscode-separator: #4a4a4f;
+}
+body.theme-dark, body.theme-dark.text-soft {
+  --text: var(--vs-fg, #e0e0e0);
+  --vscode-text: var(--vs-fg, #e0e0e0);
+}
+body.theme-dark.text-soft { --text: color-mix(in srgb, var(--vs-fg, #e0e0e0) 85%, var(--bg)); --vscode-text: var(--text); }
+body.theme-dark { background: var(--bg); }
+body.theme-dark #outline { background: var(--pane-bg); }
+body.theme-dark .pane-title, body.theme-dark #outline-list .toggle { color: #9a9a9a; }
+body.theme-dark #outline-list li:hover { background: var(--hover-bg); }
+body.theme-dark #statusbar { background: var(--bg); color: #b0b0b0; }
+body.theme-dark #statusbar .status-btn:hover { background: var(--hover-bg); }
+body.theme-dark #status-dirty { color: #f48771; }
+
+/* 文書 */
+body.theme-dark #doc :is(h1, h2) { border-bottom-color: var(--rule); }
+body.theme-dark #doc blockquote { border-left-color: #5a5a60; color: #a8a8a8; }
+body.theme-dark #doc hr { border-top-color: var(--rule); }
+body.theme-dark #doc pre[data-info]:not([data-info=""])::before { color: #8a8a8a; }
+body.theme-dark #doc .md-raw { color: #9a9a9a; border-left-color: #4a4a4f; }
+/* 表：見出しの行の背景は、枠線より明るい灰色（枠線と見分けやすく） */
+body.theme-dark #doc :is(th, td) { border-color: #4f4f55; }
+body.theme-dark #doc th { background: color-mix(in srgb, var(--bg) 66%, #ffffff); }
+body.theme-dark #doc mark { background: #6b5a00; color: inherit; }
+body.theme-dark.style-vscode #doc a { color: var(--link); }
+body.theme-dark.style-vscode #doc code { color: #ce9178; background: rgba(255, 255, 255, 0.1); }
+body.theme-dark.style-vscode #doc pre { background: rgba(255, 255, 255, 0.06); }
+body.theme-dark.style-vscode #doc pre code { color: inherit; background: none; }
+body.theme-dark.style-vscode #doc blockquote { background: rgba(127, 127, 127, 0.1); border-left-color: rgba(0, 122, 204, 0.5); color: inherit; }
+body.theme-dark.style-vscode #doc :is(th, td) { border-color: transparent; }
+body.theme-dark.style-vscode #doc th { background: none; border-bottom: 1px solid var(--text); }
+body.theme-dark.style-vscode #doc tr + tr > td { border-top-color: var(--vscode-separator); }
+
+/* ソースモード */
+body.theme-dark #source-backdrop { background: var(--code-block-bg); }
+body.theme-dark #source { color: var(--text); }
+body.theme-dark #source-backdrop mark { background: #6b5a00; }
+body.theme-dark #source-backdrop mark.current { background: #a35a00; }
+
+/* 検索：見つかった箇所・今の箇所（明るい文字が読めるよう、暗い黄色・オレンジ） */
+body.theme-dark ::highlight(find-all) { background-color: #6b5a00; }
+body.theme-dark ::highlight(find-current) { background-color: #a35a00; }
+body.theme-dark #outline-list li.search-hit { background: #6b5a00; }
+body.theme-dark #outline-list li.search-current { background: #264f78; }
+body.theme-dark #outline-list li.search-hit.search-current { background: #6b5a00; outline-color: #4daafc; }
+
+/* 右クリックのメニュー（Visual Studio のメニューの色） */
+body.theme-dark .md-menu {
+  background: var(--vs-menu-bg, #2b2b2b); border-color: var(--vs-menu-border, #454545); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+body.theme-dark .md-menu button { color: var(--vs-menu-fg, var(--text)); }
+body.theme-dark .md-menu button .check { color: var(--link); }
+body.theme-dark .md-menu button .key, body.theme-dark .md-menu .heading { color: #9a9a9a; }
+body.theme-dark .md-menu button:disabled, body.theme-dark .md-menu button:disabled .key { color: #6e6e6e; }
+body.theme-dark .md-menu button:hover:not(:disabled), body.theme-dark .md-menu button.submenu-open,
+body.theme-dark .md-menu button.active:not(:disabled) {
+  background: var(--vs-menu-hover, #094771); color: var(--vs-menu-hover-fg, var(--vs-menu-fg, var(--text)));
+}
+body.theme-dark .md-menu.kbd button:hover:not(.active):not(.submenu-open) { background: none; color: var(--vs-menu-fg, var(--text)); }
+body.theme-dark .md-menu hr { border-top-color: var(--vs-menu-sep, #454545); }
