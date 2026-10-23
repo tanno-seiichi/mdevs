@@ -1,0 +1,335 @@
+/* mdew：画面全体のレイアウトと、mde に近い見た目 */
+/* ===== フォント・文字の大きさ（ここを書き換えて試せます） =====
+   フォントは左から順に、PC に入っているものが使われます（日本語が無いフォントの場合、日本語の文字だけ
+   次のフォントで表示されます）。フォント名に空白を含む場合は ' ' で囲みます。 */
+/* GitHubスタイル */
+:root {
+  --ui-font: 'Yu Gothic UI', 'Meiryo UI', 'Segoe UI', sans-serif;
+  --doc-font: 'Meiryo', 'Yu Gothic', sans-serif;
+  --doc-font-size: 16px;
+  --doc-line-height: 1.5625;
+  --list-line-height: 1.6;
+  --list-item-gap: 0.46em; /* 16px で約 7.4px（項目の最後の行から次の項目の最初の行まで約 33px） */
+  --code-font: Consolas, 'Meiryo', monospace;
+  --code-font-size: 0.92em;
+  --code-block-font-size: 14px;
+  --code-block-line-height: 1.5;
+  --line: #dddfe2;
+  --pane-bg: #f6f7f9;
+  --code-bg: #f8f8f8;
+  --code-block-bg: #f8f8f8;
+  --code-border: #ccd0d4;
+  /* 文字の色（本文・メニュー・ステータスバー等）。メニュー「表示」→「文字の色」で切り替える（main.js の setTextColor）：
+     「くっきりした色」（既定）はほぼ黒、「目にやさしい色」（body.text-soft）は少し薄い灰色（線が細く見える） */
+  --text: #1c1c1c;
+  --vscode-text: #000000; /* VSCodeスタイルの本文の色 */
+  --selection-bg: #c8d6e8; /* 範囲選択の色 */
+}
+
+html, body { height: 100%; margin: 0; }
+body { font-family: var(--ui-font); background: #ffffff; color: var(--text); }
+body.text-soft { --text: #333333; --vscode-text: #333333; --link: #4183c4; } /* 「目にやさしい色」（リンクも少し薄い青） */
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* メニューバー：背景は白・枠線なし・文字は 12px（9pt）・項目の間の余白は狭く */
+#menubar {
+  display: flex; align-items: center; gap: 0;
+  padding: 0 2px; background: #ffffff;
+  font-size: 12px; line-height: 18px;
+}
+#menubar button {
+  font: inherit; padding: 1px 6px; border: none; border-radius: 2px;
+  background: transparent; cursor: pointer;
+}
+#menubar button:hover, #menubar button.menu-open { background: #e6e8eb; } /* menu-open：メニューを開いている間・矢印キーで選んだ時 */
+#menubar button:focus { outline: none; } /* 矢印キーで「検索と置換」を選んだ時も、ほかのボタンと同じ見た目にする */
+
+#body { flex: 1; display: flex; min-height: 0; }
+#outline {
+  width: 220px; flex: none; overflow: auto; border-right: 1px solid var(--line);
+  background: var(--pane-bg); font-size: 13px;
+}
+body.no-outline #outline { display: none; } /* メニュー「表示」→「アウトラインを表示」で切り替え */
+.pane-title { padding: 8px 12px 4px; color: #777; font-size: 12px; }
+#outline-list { list-style: none; margin: 0; padding: 0 0 12px; }
+#outline-list li { padding: 3px 12px 3px 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#outline-list li:hover { background: #e6e8eb; }
+#outline-list .lv2 { padding-left: 16px; }
+#outline-list .lv3 { padding-left: 28px; }
+#outline-list .lv4, #outline-list .lv5, #outline-list .lv6 { padding-left: 40px; }
+/* 折りたたむ・広げる印（▸／▾。フォルダビューと同じ。main.js の renderOutline） */
+#outline-list .toggle { display: inline-block; width: 14px; color: #777; font-size: 11px; }
+
+#editor-wrap { flex: 1; overflow: auto; }
+
+/* ===== 文書の見た目 ===== */
+#doc {
+  /* 編集ペインの全体を編集領域にする（文書の下・左右の余白をクリックしても、近い行にカーソルが置かれるように）。
+     文字を書く幅は最大 884px で、中央に置く。左右の余白は 30px（ウィンドウが狭い時に、文字を書く幅を広く取る） */
+  box-sizing: border-box; min-height: 100%;
+  padding: 24px max(30px, calc((100% - 884px) / 2)) 120px;
+  /* 表示倍率（メニュー「表示」→「拡大」「縮小」・Ctrl+マウスホイール。main.js の setZoom）：文字・画像・余白をまとめて拡大・縮小する */
+  zoom: var(--zoom, 1);
+}
+/* メニュー「表示」→「本文の幅」→「編集ペインの幅に合わせる」（main.js の setFullWidth）：最大 884px の制限をなくし、
+   左右の余白 30px を除いた編集ペインの幅いっぱいに表示する */
+body.full-width #doc { padding-left: 30px; padding-right: 30px; }
+/* 同じく、表は編集ペインの幅（余白を除く）に収める：セルの中の長い URL・パス等の区切りの無い文字も途中で折り返す
+   （折り返さないと、ウィンドウを狭くした時に表が右へはみ出す）。セルの最小幅（3em）もなくす
+   （列の多い表は、最小幅 × 列数が編集ペインの幅を超えて、はみ出すため。列の幅は中身に合わせて決まり、収まらない時だけ細くなる） */
+body.full-width #doc :is(th, td) { overflow-wrap: anywhere; min-width: 0; }
+/* 文書の見た目は、PDF に書き出す時の印刷用の文書（#print-doc）にも使う */
+:is(#doc, #print-doc) {
+  font-family: var(--doc-font); font-size: var(--doc-font-size); line-height: var(--doc-line-height); outline: none;
+  word-wrap: break-word;
+}
+:is(#doc, #print-doc) > :first-child { margin-top: 0; }
+:is(#doc, #print-doc) p { margin: 0 0 0.7625em; } /* 段落の間隔 */
+/* 見出しの大きさは本文の文字の大きさ（--doc-font-size）に対する比率 */
+:is(#doc, #print-doc) h1, :is(#doc, #print-doc) h2, :is(#doc, #print-doc) h3, :is(#doc, #print-doc) h4, :is(#doc, #print-doc) h5, :is(#doc, #print-doc) h6 { line-height: 1.4; margin: 1.2em 0 0.6em; font-weight: 700; }
+:is(#doc, #print-doc) h1 { font-size: 2.25em; border-bottom: 1px solid #b4b4b4; padding-bottom: 4px; }
+:is(#doc, #print-doc) h2 { font-size: 1.75em; border-bottom: 1px solid #b4b4b4; padding-bottom: 4px; }
+:is(#doc, #print-doc) h3 { font-size: 1.5em; }
+:is(#doc, #print-doc) h4 { font-size: 1.25em; }
+:is(#doc, #print-doc) h5, :is(#doc, #print-doc) h6 { font-size: 1em; }
+:is(#doc, #print-doc) ul, :is(#doc, #print-doc) ol { margin: 0 0 0.8em; padding-left: 1.8em; }
+:is(#doc, #print-doc) li > ul, :is(#doc, #print-doc) li > ol { margin-bottom: 0; }
+/* 箇条書きの行の間隔・項目の間隔（--list-line-height・--list-item-gap）。入れ子の箇条書きの前にも、項目の間と同じ間隔を空ける */
+:is(#doc, #print-doc) li { line-height: var(--list-line-height); }
+:is(#doc, #print-doc) li + li,
+:is(#doc, #print-doc) li > ul, :is(#doc, #print-doc) li > ol { margin-top: var(--list-item-gap); }
+:is(#doc, #print-doc) ul { list-style-type: disc; }
+:is(#doc, #print-doc) ul ul { list-style-type: circle; }
+:is(#doc, #print-doc) ul ul ul { list-style-type: square; }
+/* チェックボックスは箇条書きの記号と同じ位置（項目の左側）に置き、文字の位置・入れ子の字下げ幅を
+   通常の箇条書きと揃える */
+:is(#doc, #print-doc) li.task { list-style: none; position: relative; }
+:is(#doc, #print-doc) li.task > input[type=checkbox] {
+  /* 縦の位置：1行目の文字の上端（行の間隔の上側の余白 = (行の高さ - 1) / 2）から少し下 */
+  position: absolute; left: -1.35em; top: calc((var(--list-line-height) - 1) * 0.5em + 0.105em);
+  margin: 0; width: 0.85em; height: 0.85em; cursor: pointer;
+}
+:is(#doc, #print-doc) td > input[type=checkbox] {
+  /* 表のセルのチェックボックス（セルの先頭の「[ ]」「[x]」。markdown.js の renderBodyCell）：文字と同じ行の先頭に置く */
+  margin: 0 0.4em 0 0; width: 0.85em; height: 0.85em; vertical-align: -0.1em; cursor: pointer;
+}
+:is(#doc, #print-doc) blockquote { margin: 0 0 0.8em; padding: 0 1em; border-left: 4px solid #d0d7de; color: #555; }
+:is(#doc, #print-doc) blockquote > :last-child { margin-bottom: 0; }
+:is(#doc, #print-doc) hr { border: none; border-top: 2px solid #d0d7de; margin: 1.2em 0; }
+:is(#doc, #print-doc) code {
+  font-family: var(--code-font); font-size: var(--code-font-size); color: var(--code-text);
+  background: var(--code-bg); border: 1px solid var(--code-border); border-radius: 3px; padding: 1px 4px 0;
+}
+:is(#doc, #print-doc) pre {
+  font-family: var(--code-font); font-size: var(--code-block-font-size); line-height: var(--code-block-line-height);
+  color: var(--code-text); background: var(--code-block-bg); border: 1px solid var(--code-border); border-radius: 3px;
+  padding: 8px 16px; margin: 0 0 0.8em; white-space: pre-wrap;
+}
+:is(#doc, #print-doc) pre code { background: none; border: none; padding: 0; font-size: inherit; }
+:is(#doc, #print-doc) pre[data-info]:not([data-info=""])::before {
+  content: attr(data-info); display: block; float: right; color: #999; font-size: 12px; user-select: none;
+}
+:is(#doc, #print-doc) .md-raw {
+  font-family: var(--code-font); white-space: pre-wrap; color: #777; font-size: 14px;
+  margin: 0 0 0.8em; padding: 2px 6px; border-left: 3px solid #e3e3e3;
+}
+:is(#doc, #print-doc) table { border-collapse: collapse; margin: 0 0 0.8em; }
+:is(#doc, #print-doc) th, :is(#doc, #print-doc) td { border: 1px solid #c8ccd1; padding: 4px 10px; min-width: 3em; vertical-align: top; }
+:is(#doc, #print-doc) th { background: #f8f8f8; }
+:is(#doc, #print-doc) img { max-width: 100%; vertical-align: bottom; }
+:is(#doc, #print-doc) a { color: var(--link, #0b62c4); text-decoration: underline; cursor: pointer; } /* リンクはクリックで開く */
+:is(#doc, #print-doc) mark { background: #fff3a3; }
+
+/* ===== VSCodeスタイル（メニュー「表示」→「表示スタイル」→「VSCodeスタイル」。main.js の setDocStyle） =====
+   Visual Studio Code の Markdown のプレビュー（ライトテーマ）に似せた見た目。上の GitHubスタイルの値を、
+   body.style-vscode の時だけ上書きする。文字は Segoe UI（日本語は Yu Gothic UI）の 14px、黒。
+   見出しは少し太い字（600）で、大見出し・中見出しの下に淡い灰色の線。箇条書きは項目の間を空けない。
+   リンクは下線なしの青、コードは赤い字に淡い灰色の背景。表は縦の線が無く、行の間に淡い灰色の線 */
+body.style-vscode {
+  --doc-font: 'Segoe WPC', 'Segoe UI', 'Yu Gothic UI', 'Meiryo UI', sans-serif;
+  --doc-font-size: 14px;
+  --doc-line-height: 1.7;
+  --list-line-height: 1.6;
+  --list-item-gap: 0px;
+  --code-font: Consolas, 'Courier New', 'Yu Gothic UI', monospace;
+  --code-font-size: 1em;
+  --code-block-font-size: 14px;
+  --code-block-line-height: 1.357;
+  --vscode-separator: #d1d1d1; /* 見出しの下・表・横線の色（黒の 18%） */
+}
+body.style-vscode :is(#doc, #print-doc) { color: var(--vscode-text); }
+body.style-vscode :is(#doc, #print-doc) p { margin: 0 0 0.9em; }
+body.style-vscode :is(#doc, #print-doc) :is(h1, h2, h3, h4, h5, h6) { line-height: 1.25; margin: 24px 0 16px; font-weight: 600; }
+body.style-vscode :is(#doc, #print-doc) h1 { font-size: 2em; border-bottom: 1px solid var(--vscode-separator); padding-bottom: 0.3em; }
+body.style-vscode :is(#doc, #print-doc) h2 { font-size: 1.5em; border-bottom: 1px solid var(--vscode-separator); padding-bottom: 0.3em; }
+body.style-vscode :is(#doc, #print-doc) h3 { font-size: 1.25em; }
+body.style-vscode :is(#doc, #print-doc) h4 { font-size: 1em; }
+body.style-vscode :is(#doc, #print-doc) h5 { font-size: 0.875em; }
+body.style-vscode :is(#doc, #print-doc) h6 { font-size: 0.85em; }
+body.style-vscode :is(#doc, #print-doc) :is(ul, ol) { margin: 0 0 0.9em; padding-left: 2em; }
+body.style-vscode :is(#doc, #print-doc) :is(strong, b) { font-weight: 600; }
+body.style-vscode :is(#doc, #print-doc) a { color: #006ab1; text-decoration: none; }
+body.style-vscode :is(#doc, #print-doc) a:hover { text-decoration: underline; }
+body.style-vscode :is(#doc, #print-doc) code {
+  color: #a31515; background: rgba(0, 0, 0, 0.1); border: none; border-radius: 3px; padding: 1px 3px;
+}
+body.style-vscode :is(#doc, #print-doc) pre {
+  color: var(--vscode-text); background: rgba(220, 220, 220, 0.4); border: none; border-radius: 3px; padding: 16px; margin: 0 0 0.9em;
+}
+body.style-vscode :is(#doc, #print-doc) pre code { color: inherit; background: none; padding: 0; }
+body.style-vscode :is(#doc, #print-doc) blockquote {
+  margin: 0 7px 0.9em 5px; padding: 0 16px 0 10px; color: inherit;
+  background: rgba(127, 127, 127, 0.1); border-left: 5px solid rgba(0, 122, 204, 0.5);
+}
+body.style-vscode :is(#doc, #print-doc) hr { border: none; border-top: 1px solid var(--vscode-separator); margin: 1.2em 0; }
+body.style-vscode :is(#doc, #print-doc) :is(th, td) { border: none; padding: 5px 10px; }
+body.style-vscode :is(#doc, #print-doc) th { background: none; text-align: left; border-bottom: 1px solid #000000; } /* 見出しの行の下だけ黒い線 */
+body.style-vscode :is(#doc, #print-doc) tr + tr > td { border-top: 1px solid var(--vscode-separator); }
+
+#statusbar {
+  /* 文字は高さ方向の中央に（Yu Gothic UI は文字が少し下に寄って見えるため、上の余白を 1px 減らして下に回す）。左の余白は狭く */
+  display: flex; align-items: center; gap: 16px; padding: 2px 10px 4px 4px; border-top: 1px solid var(--line);
+  background: #ffffff; font-size: 12px; color: #555; /* 背景は白（mde と同じ） */
+  line-height: 18px; min-height: 18px; /* 表示する文字が無い時も高さを変えない */
+}
+body.no-statusbar #statusbar { display: none; } /* メニュー「表示」→「ステータスバーを表示」で切り替え */
+/* フォルダビュー・アウトラインの表示・非表示のボタン（mde と同じ。フォルダのボタンはフォルダを開いている時だけ） */
+#statusbar .status-btn {
+  font: inherit; color: inherit; line-height: 16px; padding: 0 6px; margin: -1px 0;
+  border: 1px solid transparent; border-radius: 4px; background: transparent; cursor: pointer;
+}
+#statusbar .status-btn:hover { background: #e6e8eb; border-color: var(--line); }
+#status-folder { display: none; }
+body.folder-open #status-folder { display: inline-block; }
+#status-dirty { color: #c0392b; min-width: 4em; }
+#status-host { margin-left: auto; }
+#status-link { color: var(--link, #0b62c4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* Debug ビルドの時だけ表示する部分（停止・入力遅延の回数。ホストから init で debug が届くと body に debug を付ける） */
+.debug-only { display: none; }
+body.debug .debug-only { display: inline; }
+
+/* 範囲選択の見た目（淡い青の背景で、文字の色はそのまま） */
+::selection { background: var(--selection-bg); color: inherit; }
+
+/* ソースモード（Markdown のソースを直接編集する。背景の色・余白は mde と同じ）。入力欄（#source）と、
+   その後ろに重ねる要素（#source-backdrop。検索の色・行の位置を測る）は、文字の配置がまったく同じになるようにする */
+#source-wrap { display: none; position: relative; height: 100%; }
+body.source-mode #doc { display: none; }
+body.source-mode #source-wrap { display: block; }
+body.source-mode #editor-wrap { overflow: hidden; }
+#source, #source-backdrop {
+  /* 左右の余白・文字を書く幅は、Markdown モード（#doc）と同じにする（1行に入る文字数をそろえる）：余白は 30px、
+     文字を書く幅は最大 884px で中央に置く（「編集ペインの幅に合わせる」の時は余白 30px だけ）。#doc は表示倍率で
+     余白・幅もまとめて拡大・縮小する（zoom）ので、ここでも表示倍率を掛ける。入力欄は自分のスクロールバーの分だけ
+     文字を書く幅が狭くなるので、その幅（--source-scrollbar。main.js の setSourceMode で測る）を除いて中央に置く */
+  --source-side: max(calc(30px * var(--zoom, 1)), calc((100% - var(--source-scrollbar, 0px) - 884px * var(--zoom, 1)) / 2));
+  position: absolute; inset: 0; margin: 0; border: 0; box-sizing: border-box; padding: 32px var(--source-side);
+  font-family: var(--doc-font); font-size: calc(var(--doc-font-size) * var(--zoom, 1)); line-height: 1.6; letter-spacing: normal;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; tab-size: 4;
+  overflow-x: hidden; overflow-y: scroll;
+}
+#source-backdrop { background: #f0f0f0; color: transparent; pointer-events: none; }
+#source-backdrop mark { color: transparent; background: #ffe166; }
+#source-backdrop mark.current { background: #ffa54d; }
+#source { background: transparent; color: #000000; resize: none; outline: none; }
+body.text-soft #source { color: var(--text); } /* 「目にやさしい色」 */
+body.full-width :is(#source, #source-backdrop) { --source-side: calc(30px * var(--zoom, 1)); }
+
+/* フォルダビュー（「フォルダを開く...」で開いた時だけ表示。行の色は mde と同じ） */
+#folder {
+  display: none; width: 200px; flex: none; overflow: auto; border-right: 1px solid var(--line);
+  background: var(--pane-bg); font-size: 13px;
+}
+#folder-splitter { display: none; }
+body.folder-open #folder { display: block; }
+body.folder-open #folder-splitter { display: block; }
+body.folder-open.no-folderpane #folder, body.folder-open.no-folderpane #folder-splitter { display: none; }
+#folder .pane-header { display: flex; align-items: center; padding-right: 6px; }
+#folder .pane-header .pane-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#folder-reopen {
+  font: inherit; padding: 0 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; cursor: pointer;
+}
+#folder-reopen:hover { background: #e6e8eb; border-color: var(--line); }
+#folder-tree, #folder-tree ul { list-style: none; margin: 0; padding: 0; }
+#folder-tree { padding-bottom: 12px; }
+#folder-tree .row {
+  white-space: nowrap; cursor: pointer; padding-top: 2px; padding-bottom: 2px; padding-right: 8px;
+  border: 1px solid transparent;
+}
+#folder-tree .row:hover { background: #e6e8eb; }
+#folder-tree .toggle { display: inline-block; width: 14px; color: #777; font-size: 11px; }
+#folder-tree .row.current { background: #cbe8f6; }
+#folder-tree .row.hit { background: #ffe166; }
+#folder-tree .row.current.hit { border-color: #26a0da; }
+#folder-splitter { width: 6px; margin-left: -3px; margin-right: -3px; flex: none; cursor: col-resize; position: relative; z-index: 2; }
+#folder-splitter:hover, body.resizing #folder-splitter { background: rgba(11, 98, 196, 0.25); }
+
+/* 検索と置換：見つかった箇所の色（黄色）、今の箇所（オレンジ）。mde と同じ色 */
+::highlight(find-all) { background-color: #ffe166; }
+::highlight(find-current) { background-color: #ffa54d; }
+/* 今の箇所を選択している間は、範囲選択の色を付けない（今の箇所のオレンジが見えるように。find.js の setCurrentSelected） */
+body.find-selected #doc ::selection, body.find-selected #source::selection { background: transparent; }
+#outline-list li.search-hit { background: #ffe166; }
+#outline-list li.search-current { background: #cbe8f6; }
+#outline-list li.search-hit.search-current { background: #ffe166; outline: 1px solid #26a0da; outline-offset: -1px; }
+
+/* 右クリックのメニュー・「ファイル」のメニュー */
+.md-menu {
+  position: fixed; z-index: 100; min-width: 160px; padding: 4px 0;
+  background: #ffffff; border: 1px solid #c8ccd1; border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); font-family: var(--ui-font); font-size: 13px;
+}
+.md-menu button {
+  display: flex; align-items: center; width: 100%; padding: 5px 16px 5px 6px; border: none; background: none;
+  text-align: left; font: inherit; color: var(--text); cursor: pointer; white-space: nowrap;
+}
+.md-menu { max-width: calc(100vw - 8px); }
+/* 長い項目（最近使ったファイルのフルパス等）は、画面に収まらない分を「…」にする（マウスを乗せると全体を表示する） */
+.md-menu button .label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* ファイル・フォルダのパスは、フォルダの部分を「…」にして、名前（最後の部分）は残す */
+.md-menu button .label.path { display: flex; }
+.md-menu button .label.path .dir { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.md-menu button .label.path .name { flex: none; }
+.md-menu button .check { width: 18px; flex: none; text-align: center; color: #0b62c4; }
+.md-menu button .key { margin-left: auto; padding-left: 28px; color: #888; font-size: 12px; }
+.md-menu button:disabled .key { color: #bbb; }
+.md-menu button:hover:not(:disabled), .md-menu button.submenu-open, .md-menu button.active:not(:disabled) { background: #e8f0fe; }
+/* キーボード（矢印キー）で操作している間は、マウスが乗っているだけの項目は選んだ色にしない（active の項目だけ） */
+.md-menu.kbd button:hover:not(.active):not(.submenu-open) { background: none; }
+.md-menu button:disabled { color: #aaa; cursor: default; }
+.md-menu hr { border: none; border-top: 1px solid #e3e5e8; margin: 4px 0; }
+.md-menu .heading { padding: 4px 16px 2px 10px; color: #888; font-size: 12px; cursor: default; } /* 選べない見出し */
+
+/* アウトラインとの境界（ドラッグで幅を変更、ダブルクリックで既定の幅に戻す） */
+#splitter { width: 6px; margin-left: -3px; margin-right: -3px; flex: none; cursor: col-resize; position: relative; z-index: 2; }
+#splitter:hover, body.resizing #splitter { background: rgba(11, 98, 196, 0.25); }
+body.no-outline #splitter { display: none; }
+body.resizing { cursor: col-resize; user-select: none; }
+
+/* 画像はダブルクリックで開ける（右クリックの「画像を開く」も同じ） */
+#doc img { cursor: pointer; }
+
+/* 拡大・縮小した時に、今の表示倍率をウィンドウの中央に1秒ほど表示する（main.js の showZoomToast）。半透明の黒の背景に
+   白い大きな文字。消える時は少しずつ薄くする。マウスの操作は受け取らない */
+#zoom-toast {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1000;
+  padding: 10px 28px; border-radius: 8px; background: rgba(0, 0, 0, 0.6); color: #ffffff;
+  font-family: var(--ui-font); font-size: 36px; line-height: 1.3; white-space: nowrap;
+  pointer-events: none; opacity: 0; transition: opacity 0.25s;
+}
+#zoom-toast.show { opacity: 1; transition: none; }
+
+/* ===== PDF に書き出す時（印刷）の見た目。余白・用紙（A4）はホストが指定する（Program.cs の ExportPdfAsync） ===== */
+#print-doc { display: none; }
+@media print {
+  html, body { height: auto; }
+  #app, .md-menu, #zoom-toast { display: none !important; }
+  #print-doc { display: block; }
+  #print-doc > :first-child { margin-top: 0; }
+  #print-doc :is(h1, h2, h3, h4, h5, h6) { break-after: avoid; }
+  #print-doc :is(img, tr) { break-inside: avoid; }
+  #print-doc pre { white-space: pre-wrap; }
+}
+
+/* ===== mdevs（Visual Studio の中で使う時）：メニューバー・フォルダビューは使わない（Visual Studio のものを使う） ===== */
+#menubar, #folder, #folder-splitter, #status-folder { display: none !important; }

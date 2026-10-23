@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>14</LangVersion>
+    <RootNamespace>mdevs</RootNamespace>
+
+    <!-- VSIX settings -->
+    <VSSDKBuildToolsAutoSetup>true</VSSDKBuildToolsAutoSetup>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectCapability Include="CreateVsixContainer" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="18.9.820" />
+    <!-- 編集画面を表示する WebView2（mdew と同じ版）。DLL は拡張機能に同梱する。GeneratePathProperty：下の
+         WebView2Loader.dll の場所（$(PkgMicrosoft_Web_WebView2)）を使うため -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" GeneratePathProperty="true" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 編集ペイン（MarkdownWebHost）は WPF のコントロール -->
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 画面側（HTML・JavaScript・CSS）。ビルドせずにそのまま拡張機能の web フォルダに入れる -->
+    <None Remove="web\**" />
+    <Content Include="web\**" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <!-- WebView2 のネイティブ DLL（64bit 用）。拡張機能のフォルダの直下に入れる（MarkdownWebHost.GetEnvironmentAsync） -->
+    <Content Include="$(PkgMicrosoft_Web_WebView2)\runtimes\win-x64\native\WebView2Loader.dll" Link="WebView2Loader.dll"
+             IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- ダイアログの部品の見た目（dialog\Dialogs.cs の DialogStyles.Load が、実行時に読み込む） -->
+    <None Remove="dialog\DialogStyles.xaml" />
+    <EmbeddedResource Include="dialog\DialogStyles.xaml" LogicalName="mdevs.dialog.DialogStyles.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- エディターの名前（MdevsPackage の 110）。Visual Studio は、パッケージの DLL の「VSPackage」という名前のリソースから読む -->
+    <EmbeddedResource Update="VSPackage.resx">
+      <MergeWithCTO>true</MergeWithCTO>
+      <ManifestResourceName>VSPackage</ManifestResourceName>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>

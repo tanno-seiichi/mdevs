@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="mdevs/mdevs.csproj">
+    <Deploy />
+  </Project>
+</Solution>
