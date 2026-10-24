@@ -1,5 +1,4 @@
-﻿mdevs License
-(The license of mdevs, and the licenses of the third-party software used in mdevs)
+﻿The license of mdevs, and the licenses of the third-party software used in mdevs.
 
 ========================================================================
 mdevs
