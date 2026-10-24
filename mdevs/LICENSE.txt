@@ -1,5 +1,5 @@
 ﻿mdevs License
-（mdevs のライセンスと、mdevs で使用しているサードパーティのソフトウェアのライセンス）
+(The license of mdevs, and the licenses of the third-party software used in mdevs)
 
 ========================================================================
 mdevs
@@ -29,7 +29,7 @@ SOFTWARE.
 
 ========================================================================
 Third Party Notices
-（mdevs で使用しているサードパーティのソフトウェアと、そのライセンス）
+(The third-party software used in mdevs, and their licenses)
 ========================================================================
 
 mdevs uses the following third-party software.
@@ -74,7 +74,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ------------------------------------------------------------------------
-[NOTICE.txt]（パッケージに含まれている通知。そのまま掲載）
+[NOTICE.txt] (The notice included in the package, reproduced as is)
 ------------------------------------------------------------------------
 
 NOTICES AND INFORMATION
