@@ -16,7 +16,7 @@
 //                {cmd:'copyHtml', html, text} / {cmd:'importImages', id, srcs} /
 //                {cmd:'tableSizeDialog'} / {cmd:'linkDialog'} /
 //                {cmd:'showMenu', name, x, y, items, buttons, keyboard, textColor} /
-//                {cmd:'confirmClose', files:[{path, markdown, images, current}]}
+//                {cmd:'confirmClose', files:[{path, markdown, images, current}]} / {cmd:'openHelp'}
 //   host → web : {cmd:'load', path, name, docBase, markdown} /
 //                {cmd:'saved', path, name, docBase, markdown, replacements} /
 //                {cmd:'imagePasted', id, url, alt} / {cmd:'error', message} / {cmd:'focus'} / {cmd:'init', debug, tempDir} /
@@ -26,7 +26,7 @@
 //                {cmd:'pdfExported', ok} / {cmd:'recentFiles', files, folders} / {cmd:'imagesImported', id, urls} /
 //                {cmd:'tableSize', rows, cols} / {cmd:'linkUrl', url} /
 //                {cmd:'menuSelected', id} / {cmd:'menuClosed', name} / {cmd:'menuSwitch', name, keyboard} /
-//                {cmd:'confirmClose'}
+//                {cmd:'confirmClose'} / {cmd:'readOnly', value}（ヘルプを読み取り専用で表示する）
 import { Editor, showMenu, closeMenu } from './editor.js';
 import { setJoinSoftBreaks, parseBlocks, renderBlock, imageSource } from './markdown.js';
 import { FolderView, pathKey } from './folder.js';
@@ -51,6 +51,7 @@ const state = {
   pendingSave: null, // 保存要求中の内容（保存完了時に元テキストとして取り込み直す）
   nextImageId: 1, // 貼り付けた画像の番号（ホストからの imagePasted と対応させる）
   sourceMode: false, // ソースモード（Markdown のソースを直接編集する）か。終了時には覚えない
+  readOnly: false, // 読み取り専用か（ヘルプを表示している時。setReadOnly）
   tempDir: null, // 貼り付けた画像の一時フォルダ（ホストから init で届く。他のアプリへのコピーで使う）
   recentFiles: [], // 最近使ったファイル（フルパス。先頭が最新。ホストから recentFiles で届く）
   recentFolders: [], // 最近使ったフォルダ（フルパス。先頭が最新。ホストから recentFiles で届く）
@@ -110,6 +111,8 @@ const editor = new Editor($('doc'), {
   onPageTop: () => scrollToPageTop(),
   // 右クリックの「ソースモードに切り替え」
   onToggleSource: () => setSourceMode(true),
+  // 右クリックの「ヘルプを開く」：ヘルプ（拡張機能の help\HELP.md）を、ホストが読み取り専用で開く
+  onOpenHelp: host ? () => send({ cmd: 'openHelp' }) : null,
   onPasteImage: (a_file) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -902,6 +905,18 @@ sourceArea.addEventListener('scroll', () => { sourceBackdrop.scrollTop = sourceA
 sourceArea.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   const hasSelection = sourceArea.selectionStart !== sourceArea.selectionEnd;
+  if (state.readOnly) {
+    // 読み取り専用（ヘルプ）：編集しない項目だけ
+    showMenu(e.clientX, e.clientY, [
+      { label: 'コピー', key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
+      null,
+      { label: 'すべて選択', key: 'Ctrl+A', run: () => sourceArea.select() },
+      null,
+      { label: 'ページトップに戻る', run: () => scrollToPageTop() },
+      { label: 'Markdownモードに切り替え', run: () => setSourceMode(false) },
+    ], (a_item) => a_item.run());
+    return;
+  }
   showMenu(e.clientX, e.clientY, [
     { label: '切り取り', key: 'Ctrl+X', disabled: !hasSelection, run: () => document.execCommand('cut') },
     { label: 'コピー', key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
@@ -911,8 +926,21 @@ sourceArea.addEventListener('contextmenu', (e) => {
     null,
     { label: 'ページトップに戻る', run: () => scrollToPageTop() },
     { label: 'Markdownモードに切り替え', run: () => setSourceMode(false) },
+    ...(host ? [null, { label: 'ヘルプを開く', run: () => send({ cmd: 'openHelp' }) }] : []),
   ], (a_item) => a_item.run());
 });
+
+/**
+ * 読み取り専用にする（ヘルプを表示する時。ホストからの readOnly）。文書を編集できなくし、ステータスバーに「読み取り専用」と出す。
+ * @param {boolean} a_on 読み取り専用にするか
+ */
+function setReadOnly(a_on) {
+  state.readOnly = a_on;
+  editor.setReadOnly(a_on);
+  sourceArea.readOnly = a_on;
+  document.body.classList.toggle('read-only', a_on);
+  $('status-host').textContent = a_on ? '読み取り専用（ヘルプ）' : '';
+}
 
 /**
  * 右クリックの「ページトップに戻る」：文書の先頭を表示し、カーソルも先頭に置く（mde と同じ。カーソルを置かないと、
@@ -2050,6 +2078,9 @@ if (host) {
       loadDocument(msg.markdown);
       setDirty(true);
       wrap.scrollTop = scrollTop;
+    } else if ('readOnly' === msg.cmd) {
+      // ヘルプを表示する時：読み取り専用にする
+      setReadOnly(!!msg.value);
     } else if ('settings' === msg.cmd) {
       // mdevs：「ツール」→「オプション」の mdevs の設定（起動時と、設定を変えた時に届く）
       applySettings(msg);
@@ -2242,6 +2273,7 @@ window.__mdevs = {
    * @returns {number} 置換した件数（正規表現の誤り等は -1）
    */
   replace(a_opts) {
+    if (state.readOnly) return 0; // 読み取り専用（ヘルプ）は置換しない
     const re = vsFindRegex(a_opts);
     if (!re) return -1;
     if (a_opts.all) {

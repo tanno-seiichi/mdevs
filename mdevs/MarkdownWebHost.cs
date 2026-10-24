@@ -83,6 +83,29 @@ namespace mdevs
         public event Action<string> OpenFileRequested;
         /// <summary>Visual Studio のコマンドを実行する時（ショートカットキーを Visual Studio に渡す。OnPreviewKeyDown 参照）。</summary>
         public event Action<Guid, uint> CommandRequested;
+        /// <summary>画面側で、右クリックの「ヘルプを開く」が選ばれた時。</summary>
+        public event Action HelpRequested;
+
+        /// <summary>開いているファイルが、ヘルプ（読み取り専用で表示する）か。</summary>
+        private bool m_readOnly;
+
+        /// <summary>ヘルプのファイル（拡張機能のフォルダの help\HELP.md。右クリックの「ヘルプを開く」で、読み取り専用で開く）。</summary>
+        public static string HelpPath =>
+            Path.Combine(Path.GetDirectoryName(typeof(MarkdownWebHost).Assembly.Location), "help", "HELP.md");
+
+        /// <summary>ヘルプのファイルか。</summary>
+        /// <param name="a_path">ファイルのパス。</param>
+        private static bool IsHelpFile(string a_path)
+        {
+            try
+            {
+                return string.Equals(Path.GetFullPath(a_path), Path.GetFullPath(HelpPath), StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
 
         /// <summary>中身を作る。WebView2 の準備は、画面に表示された後（Loaded）に行う。</summary>
         public MarkdownWebHost()
@@ -441,6 +464,10 @@ namespace mdevs
                 case "devTools":
                     m_webView.CoreWebView2?.OpenDevToolsWindow();
                     break;
+                case "openHelp":
+                    // 右クリックの「ヘルプを開く」
+                    HelpRequested?.Invoke();
+                    break;
                 case "openUrl":
                     OpenUrl((string)msg["url"]);
                     break;
@@ -668,6 +695,7 @@ namespace mdevs
             m_hasBom = bytes.Length >= 3 && 0xEF == bytes[0] && 0xBB == bytes[1] && 0xBF == bytes[2];
             string text = new UTF8Encoding(false).GetString(bytes, m_hasBom ? 3 : 0, bytes.Length - (m_hasBom ? 3 : 0));
             m_useCrLf = text.Contains("\r\n");
+            m_readOnly = IsHelpFile(a_path);
             m_currentPath = a_path;
             m_loadedMarkdown = text.Replace("\r\n", "\n");
             m_forceLoad = a_force;
@@ -681,6 +709,8 @@ namespace mdevs
         private void PostLoad()
         {
             string docBase = SetDocumentFolder(m_currentPath);
+            // ヘルプは読み取り専用で表示する（ほかのファイルは編集できるようにする）
+            Post(new { cmd = "readOnly", value = m_readOnly });
             Post(new
             {
                 cmd = "load", path = m_currentPath, name = Path.GetFileName(m_currentPath), docBase, markdown = m_loadedMarkdown,
@@ -698,6 +728,10 @@ namespace mdevs
         /// <param name="a_remember">保存先を、このファイルのパスとして覚えるか（「コピーを保存」の時は false）。</param>
         public void SaveFile(string a_path, bool a_remember)
         {
+            if (m_readOnly)
+            {
+                return; // ヘルプ（読み取り専用）は書き込まない
+            }
             string markdown = m_loadedMarkdown;
             var images = new List<string>();
             if (m_ready && null != m_webView.CoreWebView2)
@@ -751,6 +785,10 @@ namespace mdevs
         /// <param name="a_markdown">新しい内容（Markdown）。</param>
         public void SetMarkdown(string a_markdown)
         {
+            if (m_readOnly)
+            {
+                return; // ヘルプ（読み取り専用）は書き換えない
+            }
             string markdown = (a_markdown ?? string.Empty).Replace("\r\n", "\n");
             if (!m_ready)
             {

@@ -44,10 +44,13 @@ export class Editor {
    *   http…。他のアプリへのコピー用。分からなければ null）
    * @param {(srcs: string[]) => Promise<(string|null)[]>} a_handlers.importImages 他のアプリが置いた画像のファイル
    *   （Excel の一時ファイル等）を、貼り付けた画像としてホストにコピーしてもらう（URL を返す。コピーできなければ null）
+   * @param {() => void} [a_handlers.onOpenHelp] ヘルプを開く（右クリックの「ヘルプを開く」。無ければメニューに出さない）
    */
   constructor(a_root, a_handlers) {
     this.m_root = a_root;
     this.m_handlers = a_handlers;
+    /** 読み取り専用か（ヘルプを表示している時。setReadOnly）。 */
+    this.m_readOnly = false;
     /** 最上位のブロック → 読み込み時の情報 {index:何番目のブロックか, start, end:元テキストの中の位置}。 */
     this.m_info = new WeakMap();
     /** 読み込み後（保存後）に中身が変わった最上位のブロック。 */
@@ -317,6 +320,24 @@ export class Editor {
   /** 編集領域にキーボードの入力先を移す（カーソル位置はそのまま）。 */
   focus() {
     this.m_root.focus();
+  }
+
+  /**
+   * 読み取り専用にする（ヘルプを表示する時）。文字の入力・貼り付け・チェックボックスの切り替え等をできなくし、右クリックの
+   * メニューは、コピー・すべて選択等の編集しない項目だけにする。文字の選択・コピー・リンクを開く・スクロールはできる。
+   * @param {boolean} a_on 読み取り専用にするか
+   */
+  setReadOnly(a_on) {
+    this.m_readOnly = a_on;
+    this.m_root.contentEditable = a_on ? 'false' : 'true';
+    // 編集できなくしても、キーボードでスクロールできるよう、入力先にはなれるようにする
+    if (a_on) this.m_root.tabIndex = -1;
+    else this.m_root.removeAttribute('tabindex');
+  }
+
+  /** 読み取り専用か。 */
+  get readOnly() {
+    return this.m_readOnly;
   }
 
   // ===== 変更の追跡 =====
@@ -663,6 +684,7 @@ export class Editor {
    * @param {InputEvent} e
    */
   onBeforeInput(e) {
+    if (this.m_readOnly) { e.preventDefault(); return; }
     if ('historyUndo' === e.inputType) { e.preventDefault(); this.undo(); return; }
     if ('historyRedo' === e.inputType) { e.preventDefault(); this.redo(); return; }
     if (e.isComposing) return;
@@ -860,6 +882,14 @@ export class Editor {
    * @param {KeyboardEvent} e
    */
   onKeyDown(e) {
+    if (this.m_readOnly) {
+      // 読み取り専用：すべて選択だけ受け付ける（コピー・矢印キー等でのスクロールは、ブラウザ標準の動きのまま）
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && 'a' === e.key.toLowerCase()) {
+        e.preventDefault();
+        this.selectAll();
+      }
+      return;
+    }
     if (e.isComposing || 229 === e.keyCode) return;
     const key = e.key;
     // Ctrl+Shift+V：書式なしで貼り付け（貼り付け自体はブラウザの paste に任せ、onPaste で書式なしにする）
@@ -1262,6 +1292,10 @@ export class Editor {
       return;
     }
     const box = e.target;
+    if ('INPUT' === box.tagName && 'checkbox' === box.type && this.m_readOnly) {
+      e.preventDefault(); // 読み取り専用：チェックを切り替えない
+      return;
+    }
     if ('INPUT' === box.tagName && 'checkbox' === box.type) {
       // チェックボックスの切り替え（変更として記録されるよう、属性にも反映する）
       this.checkpoint('edit');
@@ -1286,6 +1320,19 @@ export class Editor {
     if ('IMG' === e.target.tagName) {
       const src = imageSource(e.target);
       items.push({ label: '画像を開く', run: () => this.m_handlers.onOpenImage(src) }, null);
+    }
+    if (this.m_readOnly) {
+      // 読み取り専用（ヘルプ）：編集しない項目だけ
+      items.push(
+        { label: 'コピー', key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
+        { label: 'Excel用にコピー', disabled: !hasSelection, run: () => this.copyForExcel() },
+        null,
+        { label: 'すべて選択', key: 'Ctrl+A', run: () => this.selectAll() },
+        null,
+        { label: 'ページトップに戻る', run: () => this.m_handlers.onPageTop() },
+        { label: 'ソースモードに切り替え', run: () => this.m_handlers.onToggleSource() });
+      showMenu(e.clientX, e.clientY, items, (a_item) => a_item.run());
+      return;
     }
     items.push(
       { label: '切り取り', key: 'Ctrl+X', disabled: !hasSelection, run: () => document.execCommand('cut') },
@@ -1347,6 +1394,7 @@ export class Editor {
     items.push(null,
       { label: 'ページトップに戻る', run: () => this.m_handlers.onPageTop() },
       { label: 'ソースモードに切り替え', run: () => this.m_handlers.onToggleSource() });
+    if (this.m_handlers.onOpenHelp) items.push(null, { label: 'ヘルプを開く', run: () => this.m_handlers.onOpenHelp() });
     showMenu(e.clientX, e.clientY, items, (a_item) => a_item.run());
   }
 
@@ -1702,6 +1750,10 @@ export class Editor {
    * @param {ClipboardEvent} e
    */
   onPaste(e) {
+    if (this.m_readOnly) {
+      e.preventDefault();
+      return;
+    }
     const data = e.clipboardData;
     if (!data) return;
     e.preventDefault();
@@ -1830,6 +1882,10 @@ export class Editor {
    * @param {boolean} a_cut 切り取りか（コピーした後に、選んだ範囲を消す）
    */
   onCopy(e, a_cut) {
+    if (a_cut && this.m_readOnly) {
+      e.preventDefault(); // 読み取り専用：切り取らない
+      return;
+    }
     const sel = getSelection();
     if (!e.clipboardData || !sel.rangeCount || sel.isCollapsed || !this.m_root.contains(sel.anchorNode)) return;
     e.preventDefault();

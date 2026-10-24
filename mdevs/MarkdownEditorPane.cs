@@ -89,6 +89,7 @@ namespace mdevs
             m_host.SaveRequested += SaveFromEditor;
             m_host.OpenFileRequested += OpenFileInVisualStudio;
             m_host.CommandRequested += PostCommand;
+            m_host.HelpRequested += OpenHelp;
             Content = m_host;
             // 編集画面で使うキーを、Visual Studio のショートカットより先に編集画面に渡す
             KeyboardRouter.Install();
@@ -211,6 +212,29 @@ namespace mdevs
             catch (Exception ex)
             {
                 Log.Write($"ファイルを開けませんでした：{a_path}", ex);
+            }
+        }
+
+        /// <summary>ヘルプ（拡張機能の help\HELP.md）を、このエディターで開く（右クリックの「ヘルプを開く」。読み取り専用で
+        /// 表示する。MarkdownWebHost.HelpPath）。.md の既定の開き方をテキストエディターに変えていても、このエディターで開く。</summary>
+        private void OpenHelp()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            string path = MarkdownWebHost.HelpPath;
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    Log.Write($"ヘルプが見つかりません：{path}");
+                    return;
+                }
+                IVsWindowFrame frame = VsShellUtilities.OpenDocumentWithSpecificEditor(m_package, path,
+                    typeof(MarkdownEditorFactory).GUID, VSConstants.LOGVIEWID_Primary);
+                frame?.Show();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"ヘルプを開けませんでした：{path}", ex);
             }
         }
 
