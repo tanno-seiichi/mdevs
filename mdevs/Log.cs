@@ -25,7 +25,8 @@ namespace mdevs
         {
             string line = $"{DateTime.Now:HH:mm:ss.fff} {a_message}{Environment.NewLine}";
             System.Diagnostics.Debug.Write("[mdevs] " + line);
-#pragma warning disable VSTHRD110, VSTHRD001
+            // 書き終わるのは待たない（どのスレッドからでも、すぐに戻る）
+#pragma warning disable VSTHRD110, VSTHRD001, VSSDK007
             ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -49,7 +50,7 @@ namespace mdevs
                     // 記録できなくても動作には影響しない
                 }
             });
-#pragma warning restore VSTHRD110, VSTHRD001
+#pragma warning restore VSTHRD110, VSTHRD001, VSSDK007
         }
 
         /// <summary>例外を書く。</summary>

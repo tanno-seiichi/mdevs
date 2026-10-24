@@ -12,6 +12,9 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.ComponentModelHost;
+using Microsoft.VisualStudio.Editor;
+using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.TextManager.Interop;
 
 namespace mdevs
@@ -24,7 +27,7 @@ namespace mdevs
     /// ほかのアプリでファイルが変更されたら、読み直す（保存していない変更がある時は確認する）。
     /// </summary>
     public sealed class MarkdownEditorPane : WindowPane, IVsPersistDocData, IPersistFileFormat, IVsFindTarget,
-        IVsFileChangeEvents, IVsDocDataFileChangeControl
+        IVsFileChangeEvents, IVsDocDataFileChangeControl, IVsTextBufferProvider
     {
         /// <summary>「名前を付けて保存」のダイアログに出すファイルの種類（説明と拡張子を改行で区切る）。</summary>
         private const string FILE_FORMAT_LIST = "Markdown ファイル (*.md)\n*.md\n";
@@ -96,16 +99,26 @@ namespace mdevs
         {
             if (a_disposing)
             {
-                ThreadHelper.ThrowIfNotOnUIThread();
-                s_openPanes.Remove(this);
-                if (0 == s_openPanes.Count)
-                {
-                    KeyboardRouter.Uninstall();
-                }
-                StopWatchingFile();
-                m_host.Dispose();
+                DisposeManaged();
             }
             base.Dispose(a_disposing);
+        }
+
+        /// <summary>閉じる時の後始末の本体（UI スレッドで、Dispose から呼ぶ）。</summary>
+        private void DisposeManaged()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            s_openPanes.Remove(this);
+            if (0 == s_openPanes.Count)
+            {
+                KeyboardRouter.Uninstall();
+            }
+            StopWatchingFile();
+            if (null != m_textBuffer)
+            {
+                m_textBuffer.Changed -= OnTextBufferChanged;
+            }
+            m_host.Dispose();
         }
 
         // ===== キー入力の振り分け（KeyboardRouter） =====
@@ -130,6 +143,7 @@ namespace mdevs
         /// <param name="a_id">コマンドの番号。</param>
         internal void PostVsCommand(Guid a_group, uint a_id)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             PostCommand(a_group, a_id);
         }
 
@@ -221,6 +235,7 @@ namespace mdevs
 
         int IVsPersistDocData.LoadDocData(string a_documentPath)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return ((IPersistFileFormat)this).Load(a_documentPath, 0, 0);
         }
 
@@ -541,6 +556,95 @@ namespace mdevs
             return VSConstants.E_NOTIMPL;
         }
 
+        // ===== テキストとしての内容（IVsTextBufferProvider。Visual Studio の「すべて置換」・「すべて検索」） =====
+        //
+        // Visual Studio の「検索と置換」の「すべて置換」（検索場所：現在のドキュメント等）は、開いている文書の内容を
+        // テキストバッファーとして直接書き換える。編集画面はテキストバッファーを持たないので、求められた時に、編集画面の
+        // 今の内容（Markdown）を入れたテキストバッファーを渡す。Visual Studio がそれを書き換えたら、その内容を編集画面に
+        // 読み込む（保存していない変更として。元に戻す（Ctrl+Z）では戻せない）。
+
+        /// <summary>Visual Studio に渡すテキストバッファー（初めて求められた時に作る）。</summary>
+        private IVsTextLines m_textLines;
+        /// <summary>m_textLines の中身（変更の通知を受け取る）。</summary>
+        private ITextBuffer m_textBuffer;
+        /// <summary>編集画面の内容をテキストバッファーに入れている最中か（その変更は編集画面に戻さない）。</summary>
+        private bool m_syncingTextBuffer;
+        /// <summary>テキストバッファーの変更を、編集画面に読み込む予定があるか（まとめて1回にする）。</summary>
+        private bool m_textBufferApplyPending;
+
+        /// <summary>テキストバッファーを渡す。中身は、編集画面の今の内容にしてから渡す。</summary>
+        int IVsTextBufferProvider.GetTextBuffer(out IVsTextLines a_textBuffer)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            a_textBuffer = null;
+            if (m_syncingTextBuffer)
+            {
+                // 編集画面の内容を受け取るのを待っている間に、また求められた：今のテキストバッファーをそのまま渡す
+                a_textBuffer = m_textLines;
+                return null == a_textBuffer ? VSConstants.E_FAIL : VSConstants.S_OK;
+            }
+            try
+            {
+                m_syncingTextBuffer = true;
+                string text = m_host.GetCurrentMarkdown();
+                if (null == m_textLines)
+                {
+                    var componentModel = (IComponentModel)GetService(typeof(SComponentModel));
+                    IVsEditorAdaptersFactoryService adapters = componentModel.GetService<IVsEditorAdaptersFactoryService>();
+                    var oleServiceProvider = (Microsoft.VisualStudio.OLE.Interop.IServiceProvider)ServiceProvider.GlobalProvider
+                        .GetService(typeof(Microsoft.VisualStudio.OLE.Interop.IServiceProvider));
+                    IVsTextBuffer buffer = adapters.CreateVsTextBufferAdapter(oleServiceProvider);
+                    ErrorHandler.ThrowOnFailure(buffer.InitializeContent(text, text.Length));
+                    m_textLines = (IVsTextLines)buffer;
+                    m_textBuffer = adapters.GetDocumentBuffer(buffer);
+                    m_textBuffer.Changed += OnTextBufferChanged;
+                    Log.Write("Visual Studio にテキストとしての内容を渡しました。");
+                }
+                else if (m_textBuffer.CurrentSnapshot.GetText() != text)
+                {
+                    m_textBuffer.Replace(new Span(0, m_textBuffer.CurrentSnapshot.Length), text);
+                }
+                a_textBuffer = m_textLines;
+                return VSConstants.S_OK;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Visual Studio にテキストとしての内容を渡せませんでした", ex);
+                return VSConstants.E_FAIL;
+            }
+            finally
+            {
+                m_syncingTextBuffer = false;
+            }
+        }
+
+        int IVsTextBufferProvider.SetTextBuffer(IVsTextLines a_textBuffer)
+        {
+            return VSConstants.E_NOTIMPL;
+        }
+
+        int IVsTextBufferProvider.LockTextBuffer(int a_lock)
+        {
+            return VSConstants.S_OK;
+        }
+
+        /// <summary>Visual Studio がテキストバッファーを書き換えた時：書き換え終わってから（まとめて1回）編集画面に読み込む。</summary>
+        private void OnTextBufferChanged(object a_sender, TextContentChangedEventArgs a_args)
+        {
+            if (m_syncingTextBuffer || m_textBufferApplyPending)
+            {
+                return;
+            }
+            m_textBufferApplyPending = true;
+            UiThread.Post(m_host.Dispatcher, () =>
+            {
+                m_textBufferApplyPending = false;
+                string text = m_textBuffer.CurrentSnapshot.GetText();
+                Log.Write("Visual Studio が内容を書き換えました（すべて置換等）。編集画面に読み込みます。");
+                m_host.SetMarkdown(text);
+            }, System.Windows.Threading.DispatcherPriority.Background);
+        }
+
         // ===== ほかのアプリでのファイルの変更（IVsFileChangeEvents・IVsDocDataFileChangeControl） =====
 
         /// <summary>開いているファイルの変更（更新日時・大きさ）の通知を受け取り始める（受け取っていれば、受け取り直す）。</summary>
@@ -580,7 +684,7 @@ namespace mdevs
                 return VSConstants.S_OK;
             }
             m_reloadPending = true;
-            m_host.Dispatcher.BeginInvoke(new Action(ReloadChangedFile), System.Windows.Threading.DispatcherPriority.Background);
+            UiThread.Post(m_host.Dispatcher, ReloadChangedFile, System.Windows.Threading.DispatcherPriority.Background);
             return VSConstants.S_OK;
         }
 

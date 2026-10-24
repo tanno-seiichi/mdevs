@@ -29,6 +29,11 @@ namespace mdevs
     [ProvideEditorLogicalView(typeof(MarkdownEditorFactory), VSConstants.LOGVIEWID.Debugging_string)]
     // 拡張機能のフォルダにある DLL（WebView2 等）を読み込めるようにする
     [ProvideBindingPath]
+    // 「ツール」→「オプション」→「mdevs」→「表示」（表示スタイル・文字の色・本文の幅・段落中の改行）。Visual Studio 2026 の
+    // 新しいオプションの画面には registration.json の設定を表示する（ProvideSettingsManifest）。従来の画面には MdevsOptionsPage
+    // を表示する（IsInUnifiedSettings：新しい画面では表示しない）
+    [ProvideSettingsManifest]
+    [ProvideOptionPage(typeof(MdevsOptionsPage), "mdevs", "表示", 0, 0, true, IsInUnifiedSettings = true)]
     public sealed class MdevsPackage : AsyncPackage
     {
         /// <summary>パッケージの GUID。</summary>
@@ -41,6 +46,7 @@ namespace mdevs
         protected override async Task InitializeAsync(CancellationToken a_cancellationToken, IProgress<ServiceProgressData> a_progress)
         {
             await JoinableTaskFactory.SwitchToMainThreadAsync(a_cancellationToken);
+            MdevsSettings.Initialize(this);
             RegisterEditorFactory(new MarkdownEditorFactory(this));
             Log.Write("パッケージを初期化しました。");
         }

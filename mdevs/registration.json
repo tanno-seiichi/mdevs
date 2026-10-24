@@ -1,0 +1,86 @@
+{
+  // mdevs の設定を、Visual Studio 2026 の新しい「オプション」の画面（Unified Settings）に表示する
+  // （MdevsPackage の ProvideSettingsManifest で登録する。値の読み込みは MdevsSettings.cs）。
+  // legacyOptionPageId：従来の画面のページ（MdevsOptionsPage）の GUID。新しい画面では、このページの代わりに表示する。
+  // migration：従来の画面のページの値（レジストリ）と同じ値にしておく（従来の画面に切り替えた時も同じ設定になる）。
+  "properties": {
+    "mdevs.display.docStyle": {
+      "type": "string",
+      "title": "表示スタイル",
+      "description": "文書の見た目。GitHubスタイルは GitHub の Markdown に近い見た目、VSCodeスタイルは Visual Studio Code の Markdown のプレビューに近い見た目。",
+      "enum": [ "GitHub", "VSCode" ],
+      "enumItemLabels": [ "GitHubスタイル", "VSCodeスタイル" ],
+      "default": "GitHub",
+      "order": 10,
+      "migration": {
+        "pass": {
+          "input": {
+            "store": "VsUserSettingsRegistry",
+            "path": "DialogPage\\mdevs.MdevsOptionsPage\\DocStyle"
+          }
+        }
+      }
+    },
+    "mdevs.display.textColor": {
+      "type": "string",
+      "title": "文字の色",
+      "description": "くっきりした色はほぼ黒、目にやさしい色は少し薄い灰色（暗いテーマの時は、それぞれ明るい色・少し暗い色）。",
+      "enum": [ "Sharp", "Soft" ],
+      "enumItemLabels": [ "くっきりした色", "目にやさしい色" ],
+      "default": "Sharp",
+      "order": 20,
+      "migration": {
+        "pass": {
+          "input": {
+            "store": "VsUserSettingsRegistry",
+            "path": "DialogPage\\mdevs.MdevsOptionsPage\\TextColor"
+          }
+        }
+      }
+    },
+    "mdevs.display.docWidth": {
+      "type": "string",
+      "title": "本文の幅",
+      "description": "読みやすい幅（最大 884px で中央に置く）か、編集ペインの幅いっぱいに広げるか。",
+      "enum": [ "Limited", "Full" ],
+      "enumItemLabels": [ "読みやすい幅にする（最大 884px）", "編集ペインの幅に合わせる" ],
+      "default": "Limited",
+      "order": 30,
+      "migration": {
+        "pass": {
+          "input": {
+            "store": "VsUserSettingsRegistry",
+            "path": "DialogPage\\mdevs.MdevsOptionsPage\\DocWidth"
+          }
+        }
+      }
+    },
+    "mdevs.display.softBreak": {
+      "type": "string",
+      "title": "段落中の改行",
+      "description": "段落の中の改行（空行を挟まない改行）の表示。保存する内容は、どちらでも変わらない。",
+      "enum": [ "Join", "Source" ],
+      "enumItemLabels": [ "空行が入るまで改行しない", "ソースの通りに改行する" ],
+      "default": "Join",
+      "order": 40,
+      "migration": {
+        "pass": {
+          "input": {
+            "store": "VsUserSettingsRegistry",
+            "path": "DialogPage\\mdevs.MdevsOptionsPage\\SoftBreak"
+          }
+        }
+      }
+    }
+  },
+  "categories": {
+    "mdevs": {
+      "title": "mdevs"
+    },
+    "mdevs.display": {
+      "title": "表示",
+      "order": 10,
+      "legacyOptionPageId": "0edecf49-2fc1-4fbd-b44d-494d53d7fd05"
+    }
+  }
+}

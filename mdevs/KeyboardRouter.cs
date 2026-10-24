@@ -121,6 +121,8 @@ namespace mdevs
             {
                 try
                 {
+                    // フックは Visual Studio の UI スレッドに付けてある（Install）ので、UI スレッドで呼ばれる
+                    Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
                     Route(a_lParam);
                 }
                 catch (Exception ex)
@@ -135,6 +137,7 @@ namespace mdevs
         /// <param name="a_messagePtr">メッセージ（MSG）の場所。Visual Studio に渡さない時は、WM_NULL に書き換える。</param>
         private static void Route(IntPtr a_messagePtr)
         {
+            Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
             var message = (NativeMessage)Marshal.PtrToStructure(a_messagePtr, typeof(NativeMessage));
             if (WM_KEYDOWN != message.message && WM_SYSKEYDOWN != message.message)
             {

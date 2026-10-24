@@ -1418,6 +1418,29 @@ try {
   // 読み込めなければ既定（くっきりした色）のまま
 }
 
+// ---- mdevs：「ツール」→「オプション」の設定 ---------------------------------------------------------
+/**
+ * mdevs：Visual Studio の「ツール」→「オプション」→「mdevs」の設定に合わせる（mdew のメニュー「表示」の同じ項目）。
+ * @param {{docStyle?: string, textColor?: string, fullWidth?: boolean, joinSoftBreaks?: boolean}} a_settings
+ *   ホストからの settings のメッセージ
+ */
+function applySettings(a_settings) {
+  if (a_settings.docStyle) setDocStyle(a_settings.docStyle);
+  if (a_settings.textColor) setTextColor(a_settings.textColor);
+  if ('boolean' === typeof a_settings.fullWidth) setFullWidth(a_settings.fullWidth);
+  if ('boolean' === typeof a_settings.joinSoftBreaks && a_settings.joinSoftBreaks !== joinSoftBreaks) {
+    if (state.path) {
+      setSoftBreakMode(a_settings.joinSoftBreaks); // 表示中の文書を読み直して反映する
+    } else {
+      // まだ文書を読み込んでいない：設定だけ変える
+      joinSoftBreaks = a_settings.joinSoftBreaks;
+      setJoinSoftBreaks(joinSoftBreaks);
+    }
+  }
+}
+// 最初の設定：ホストが文書を作る時に入れておく（MarkdownWebHost の InitializeWebViewAsync）
+if (window.__mdevsSettings) applySettings(window.__mdevsSettings);
+
 // ---- 表示倍率（mde のステータスバーの「－」「100%」「＋」と同じ。次回起動時も同じにする）----------
 /** localStorage に保存するキー（値は倍率。1 が 100%）。 */
 const ZOOM_KEY = 'zoom';
@@ -2020,6 +2043,16 @@ if (host) {
     } else if ('focus' === msg.cmd) {
       // 起動直後：ウィンドウが表示されたら、すぐに書き始められるよう編集領域にカーソルを置く
       editor.focus();
+    } else if ('setMarkdown' === msg.cmd) {
+      // mdevs：Visual Studio の「すべて置換」で書き換えた内容を読み込む（表示の位置は保ち、保存していない変更にする）
+      const wrap = $('editor-wrap');
+      const scrollTop = wrap.scrollTop;
+      loadDocument(msg.markdown);
+      setDirty(true);
+      wrap.scrollTop = scrollTop;
+    } else if ('settings' === msg.cmd) {
+      // mdevs：「ツール」→「オプション」の mdevs の設定（起動時と、設定を変えた時に届く）
+      applySettings(msg);
     } else if ('theme' === msg.cmd) {
       // mdevs：Visual Studio の配色（起動時と、Visual Studio の配色を変えた時に届く）
       applyTheme(msg);
@@ -2130,6 +2163,14 @@ window.__mdevs = {
    * 保存する内容（Visual Studio の保存の仕組みから呼ばれる。保存が終わると、ホストから saved が届く）。
    * @returns {{markdown: string, images: string[]}} Markdown（改行は LF）と、文書内の画像の参照先
    */
+  /**
+   * 今の内容（Visual Studio の「すべて置換」「すべて検索」に渡すテキスト。保存はしない）。
+   * @returns {string} Markdown（改行は LF）
+   */
+  currentMarkdown() {
+    return state.sourceMode ? sourceArea.value : editor.serialize().text;
+  },
+
   saveData() {
     if (state.sourceMode) {
       // ソースモード：入力欄の内容をそのまま保存する（saved を受け取った時に、編集部分も読み直す）

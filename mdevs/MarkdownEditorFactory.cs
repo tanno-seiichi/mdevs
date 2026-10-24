@@ -80,10 +80,13 @@ namespace mdevs
 
             if (0 == (a_createFlags & (VSConstants.CEF_OPENFILE | VSConstants.CEF_SILENT)))
             {
+                Log.Write($"開けません（開き方 0x{a_createFlags:X}）：{a_documentPath}");
                 return VSConstants.E_INVALIDARG;
             }
             if (IntPtr.Zero != a_existingDocData)
             {
+                // 同じファイルを、Visual Studio がすでに別の形（テキスト等）で読み込んでいる
+                Log.Write($"開けません（{DescribeDocData(a_existingDocData)} として読み込み済み。開き方 0x{a_createFlags:X}）：{a_documentPath}");
                 return VSConstants.VS_E_INCOMPATIBLEDOCDATA;
             }
 
@@ -93,6 +96,21 @@ namespace mdevs
             a_editorCaption = string.Empty;
             a_commandUiGuid = typeof(MarkdownEditorFactory).GUID;
             return VSConstants.S_OK;
+        }
+
+        /// <summary>読み込み済みのドキュメントデータの種類（ログ用）。</summary>
+        private static string DescribeDocData(IntPtr a_docData)
+        {
+            try
+            {
+                object docData = Marshal.GetObjectForIUnknown(a_docData);
+                string kind = docData is Microsoft.VisualStudio.TextManager.Interop.IVsTextLines ? "テキスト" : "テキスト以外";
+                return $"{kind}（{docData.GetType().FullName}）";
+            }
+            catch (Exception ex)
+            {
+                return $"不明（{ex.Message}）";
+            }
         }
     }
 }

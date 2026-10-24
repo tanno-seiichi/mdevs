@@ -75,7 +75,7 @@ namespace mdevs
                 ReadLastFindOptions(request);
                 s_pending = request;
                 Log.Write($"検索結果の箇所：{request.Path} {request.Line + 1}行 {request.Column + 1}文字目 検索語「{request.Query}」");
-                Dispatcher.CurrentDispatcher.BeginInvoke(new Action(ApplyPending), DispatcherPriority.Background);
+                UiThread.Post(Dispatcher.CurrentDispatcher, ApplyPending, DispatcherPriority.Background);
             }
             catch (Exception ex)
             {
@@ -105,17 +105,75 @@ namespace mdevs
         private static bool TryNavigateActivePane(NavigationRequest a_request)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (!(Package.GetGlobalService(typeof(SVsShellMonitorSelection)) is IVsMonitorSelection selection) ||
-                ErrorHandler.Failed(selection.GetCurrentElementValue((uint)VSConstants.VSSELELEMID.SEID_DocumentFrame, out object frameObject)) ||
-                !(frameObject is IVsWindowFrame frame) ||
+            IVsWindowFrame frame = null;
+            if (Package.GetGlobalService(typeof(SVsShellMonitorSelection)) is IVsMonitorSelection selection &&
+                ErrorHandler.Succeeded(selection.GetCurrentElementValue((uint)VSConstants.VSSELELEMID.SEID_DocumentFrame, out object frameObject)))
+            {
+                frame = frameObject as IVsWindowFrame;
+            }
+            if (null == frame ||
                 ErrorHandler.Failed(frame.GetProperty((int)__VSFPROPID.VSFPROPID_DocView, out object docView)) ||
                 !(docView is MarkdownEditorPane pane))
             {
+                if (null != frame && ReopenInMdevs(frame, a_request))
+                {
+                    return true;
+                }
                 Log.Write("前面の文書が mdevs の編集ペインではないため、箇所を表示できませんでした。");
                 return false;
             }
             pane.NavigateTo(a_request);
             return true;
+        }
+
+        /// <summary>
+        /// Visual Studio が「検索結果」の .md のファイルを、mdevs ではなくテキストエディターで開いた時（まだ開いていなかった
+        /// ファイルの時。Visual Studio の「検索結果」は、開いていないファイルをテキストエディターで開くため）、そのウィンドウを閉じて
+        /// mdevs で開き直し、箇所を表示する（開き直した編集ペインが、ファイルを読み込む時に Take で受け取る）。
+        /// テキストエディターで変更していた時は、開き直さない。
+        /// </summary>
+        /// <param name="a_frame">テキストエディターのウィンドウ。</param>
+        /// <param name="a_request">表示する箇所。</param>
+        /// <returns>開き直したら true。</returns>
+        private static bool ReopenInMdevs(IVsWindowFrame a_frame, NavigationRequest a_request)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                if (ErrorHandler.Failed(a_frame.GetProperty((int)__VSFPROPID.VSFPROPID_pszMkDocument, out object documentObject)) ||
+                    !(documentObject is string path) || !IsMarkdownFile(path))
+                {
+                    return false;
+                }
+                if (ErrorHandler.Succeeded(a_frame.GetProperty((int)__VSFPROPID.VSFPROPID_DocData, out object docData)) &&
+                    docData is IVsPersistDocData persist && ErrorHandler.Succeeded(persist.IsDocDataDirty(out int dirty)) && 0 != dirty)
+                {
+                    Log.Write($"テキストエディターで変更されているため、mdevs で開き直しませんでした：{path}");
+                    return false;
+                }
+                Log.Write($"テキストエディターで開かれたため、mdevs で開き直します：{path}");
+                ErrorHandler.ThrowOnFailure(a_frame.CloseFrame((uint)__FRAMECLOSE.FRAMECLOSE_NoSave));
+                a_request.Path = path;
+                a_request.Time = DateTime.Now;
+                s_pending = a_request;
+                IVsWindowFrame frame = VsShellUtilities.OpenDocumentWithSpecificEditor(ServiceProvider.GlobalProvider, path,
+                    typeof(MarkdownEditorFactory).GUID, VSConstants.LOGVIEWID_Primary);
+                frame?.Show();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("mdevs で開き直せませんでした", ex);
+                return false;
+            }
+        }
+
+        /// <summary>Markdown のファイル（.md・.markdown）か。</summary>
+        private static bool IsMarkdownFile(string a_path)
+        {
+            string extension = System.IO.Path.GetExtension(a_path);
+            return string.Equals(extension, ".md", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(extension, ".markdown", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>そのファイルの、まだ表示していない箇所を受け取る（無い・古い時は null）。</summary>

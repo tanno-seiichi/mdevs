@@ -93,6 +93,8 @@ namespace mdevs
             // Visual Studio の配色（ダークテーマ等）に合わせる。配色を変えた時も合わせ直す
             ApplyThemeBackground();
             Microsoft.VisualStudio.PlatformUI.VSColorTheme.ThemeChanged += OnThemeChanged;
+            // 「ツール」→「オプション」の mdevs の設定（表示スタイル等）を変えた時も、すぐに反映する
+            MdevsSettings.Changed += OnSettingsChanged;
         }
 
         /// <summary>開いているファイルのパス。</summary>
@@ -100,8 +102,11 @@ namespace mdevs
 
         // ===== WebView2 の準備 =====
 
-        /// <summary>画面に表示されたら、WebView2 の準備を始める（1回だけ）。</summary>
+        /// <summary>画面に表示されたら、WebView2 の準備を始める（1回だけ）。WPF のイベントなので async void にする
+        /// （例外は中ですべて受け止めて、画面に表示する）。</summary>
+#pragma warning disable VSTHRD100
         private async void OnLoaded(object a_sender, RoutedEventArgs a_args)
+#pragma warning restore VSTHRD100
         {
             if (m_initStarted)
             {
@@ -199,9 +204,12 @@ namespace mdevs
             {
                 Log.Write($"WebView2 のプロセスが異常終了：種類={e.ProcessFailedKind} 理由={e.Reason} 終了コード={e.ExitCode}");
             };
-            // 最初の配色（画面側の main.js が、読み込んですぐに合わせる。画面が一瞬白く表示されないように）
+            // 最初の配色（画面側の main.js が、読み込んですぐに合わせる。画面が一瞬白く表示されないように）。
+            // 配色・設定は UI スレッドで読む（ここはもともと UI スレッドなので、切り替えは起きない）
+            await Microsoft.VisualStudio.Shell.ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             await core.AddScriptToExecuteOnDocumentCreatedAsync(
-                $"window.__mdevsTheme = {JsonConvert.SerializeObject(CreateThemeMessage())};");
+                $"window.__mdevsTheme = {JsonConvert.SerializeObject(CreateThemeMessage())};" +
+                $"window.__mdevsSettings = {JsonConvert.SerializeObject(CreateSettingsMessage())};");
             core.Navigate($"https://{APP_HOST}/index.html");
         }
 
@@ -322,17 +330,46 @@ namespace mdevs
             Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(bg.R, bg.G, bg.B));
         }
 
+        // ===== 「ツール」→「オプション」の mdevs の設定 =====
+
+        /// <summary>画面側に送る設定（settings のメッセージ。MdevsSettings.CreateMessage）。読めない時は null
+        /// （画面側は前回の表示のまま）。</summary>
+        private static object CreateSettingsMessage()
+        {
+            Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                return MdevsSettings.CreateMessage();
+            }
+            catch (Exception ex)
+            {
+                Log.Write("mdevs の設定を読めませんでした", ex);
+                return null;
+            }
+        }
+
+        /// <summary>設定が変わった時：画面側に知らせる。</summary>
+        private void OnSettingsChanged()
+        {
+            Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
+            object settings = CreateSettingsMessage();
+            if (m_ready && null != settings)
+            {
+                Post(settings);
+            }
+        }
+
         /// <summary>Visual Studio の配色が変わった時：背景と、画面側の配色を合わせ直す。</summary>
         private void OnThemeChanged(Microsoft.VisualStudio.PlatformUI.ThemeChangedEventArgs a_args)
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            UiThread.Post(Dispatcher, () =>
             {
                 ApplyThemeBackground();
                 if (m_ready)
                 {
                     Post(CreateThemeMessage());
                 }
-            }));
+            });
         }
 
         // ===== 画面側とのメッセージ =====
@@ -356,8 +393,9 @@ namespace mdevs
         private void OnWebMessage(object a_sender, CoreWebView2WebMessageReceivedEventArgs a_args)
         {
             string json = a_args.TryGetWebMessageAsString();
-            Dispatcher.BeginInvoke(new Action(() =>
+            UiThread.Post(Dispatcher, () =>
             {
+                Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
                 try
                 {
                     HandleWebMessage(json);
@@ -367,7 +405,7 @@ namespace mdevs
                     Log.Write("画面側からのメッセージの処理中にエラー", ex);
                     PostError($"処理中にエラーが発生しました。\n{ex.Message}");
                 }
-            }));
+            });
         }
 
         /// <summary>画面側からのメッセージを処理する（cmd ごとに振り分ける）。Visual Studio の中では使わないもの
@@ -375,6 +413,7 @@ namespace mdevs
         /// <param name="a_json">メッセージの JSON。</param>
         private void HandleWebMessage(string a_json)
         {
+            Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
             JObject msg = JObject.Parse(a_json);
             string cmd = (string)msg["cmd"];
             switch (cmd)
@@ -382,6 +421,11 @@ namespace mdevs
                 case "ready":
                     m_ready = true;
                     Post(CreateThemeMessage());
+                    object settings = CreateSettingsMessage();
+                    if (null != settings)
+                    {
+                        Post(settings);
+                    }
                     Post(new { cmd = "init", debug = false, tempDir = m_tempImageDir });
                     if (null != m_currentPath)
                     {
@@ -690,6 +734,31 @@ namespace mdevs
                 string docBase = SetDocumentFolder(a_path);
                 Post(new { cmd = "saved", path = a_path, name = Path.GetFileName(a_path), docBase, markdown = result, replacements });
             }
+        }
+
+        /// <summary>編集画面の今の内容（Markdown。改行は LF）。画面側の準備ができる前は、読み込んだファイルの内容。</summary>
+        public string GetCurrentMarkdown()
+        {
+            if (!m_ready || null == m_webView.CoreWebView2)
+            {
+                return m_loadedMarkdown;
+            }
+            return JsonConvert.DeserializeObject<string>(
+                ExecuteScriptAndWait("window.__mdevs.currentMarkdown()", SAVE_DATA_TIMEOUT_MS)) ?? string.Empty;
+        }
+
+        /// <summary>編集画面の内容を書き換える（Visual Studio の「すべて置換」の結果。保存していない変更になる）。</summary>
+        /// <param name="a_markdown">新しい内容（Markdown）。</param>
+        public void SetMarkdown(string a_markdown)
+        {
+            string markdown = (a_markdown ?? string.Empty).Replace("\r\n", "\n");
+            if (!m_ready)
+            {
+                m_loadedMarkdown = markdown;
+                DirtyChanged?.Invoke(true);
+                return;
+            }
+            Post(new { cmd = "setMarkdown", markdown });
         }
 
         /// <summary>
@@ -1229,6 +1298,7 @@ namespace mdevs
         public void Dispose()
         {
             Microsoft.VisualStudio.PlatformUI.VSColorTheme.ThemeChanged -= OnThemeChanged;
+            MdevsSettings.Changed -= OnSettingsChanged;
             try
             {
                 m_webView.Dispose();

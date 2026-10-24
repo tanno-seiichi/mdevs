@@ -9,6 +9,8 @@
     <!-- VSIX settings -->
     <VSSDKBuildToolsAutoSetup>true</VSSDKBuildToolsAutoSetup>
     <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <Version>0.0.1.0</Version>
+    <Copyright>Copyright © 2026 tanno-seiichi</Copyright>
   </PropertyGroup>
   <ItemGroup>
     <ProjectCapability Include="CreateVsixContainer" />
@@ -27,23 +29,38 @@
     <Reference Include="PresentationFramework" />
     <Reference Include="WindowsBase" />
     <Reference Include="System.Xaml" />
+    <!-- 「ツール」→「オプション」のページ（MdevsOptionsPage。Visual Studio の DialogPage は WinForms を使う） -->
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <!-- 拡張機能に入れない DLL：WebView2 の WinForms 用の DLL（使わない）と、NuGet が runtimes\win-x86・win-arm64・win-x64 に
        コピーする WebView2Loader.dll（64bit 用だけを、下の Content で拡張機能のフォルダの直下に入れる） -->
   <Target Name="RemoveUnusedWebView2Files" AfterTargets="ResolveAssemblyReferences">
     <ItemGroup>
       <ReferencePath Remove="@(ReferencePath)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.WinForms'" />
-      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)"
-                               Condition="'%(Filename)' == 'Microsoft.Web.WebView2.WinForms' Or '%(Filename)' == 'WebView2Loader'" />
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.WinForms' Or '%(Filename)' == 'WebView2Loader'" />
+    </ItemGroup>
+  </Target>
+  <!-- 上で外しても、WebView2 のパッケージが runtimes\… の WebView2Loader.dll を別に加えるため、拡張機能（VSIX）に入れる
+       ファイルの一覧からも外す（拡張機能のフォルダの直下の 64bit 用だけを残す） -->
+  <Target Name="RemoveUnusedWebView2LoadersFromVsix" AfterTargets="GetVsixSourceItems">
+    <ItemGroup>
+      <VSIXSourceItem Remove="@(VSIXSourceItem)" Condition="'%(Filename)%(Extension)' == 'WebView2Loader.dll' And $([System.String]::Copy('%(VSIXSourceItem.VSIXSubPath)').StartsWith('runtimes'))" />
     </ItemGroup>
   </Target>
   <ItemGroup>
     <!-- 画面側（HTML・JavaScript・CSS）。ビルドせずにそのまま拡張機能の web フォルダに入れる -->
     <None Remove="web\**" />
     <Content Include="web\**" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Visual Studio 2026 の新しい「オプション」の画面に表示する設定（MdevsPackage の ProvideSettingsManifest） -->
+    <Content Include="registration.json" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <!-- ライセンス：mdevs のライセンス（MIT）と、サードパーティのソフトウェア（WebView2）のライセンス（WebView2 のライセンスの
+         条件：配布物にライセンス文を含める）。拡張機能のインストールの画面にも表示する（source.extension.vsixmanifest の License）。
+         WebView2 を更新した時は、この中の版も直す -->
+    <Content Include="LICENSE.txt" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 「拡張機能の管理」の一覧に表示するアイコン（mdew と同じ絵。source.extension.vsixmanifest の Icon） -->
+    <Content Include="images\mde.png" IncludeInVSIX="true" />
     <!-- WebView2 のネイティブ DLL（64bit 用）。拡張機能のフォルダの直下に入れる（MarkdownWebHost.GetEnvironmentAsync） -->
-    <Content Include="$(PkgMicrosoft_Web_WebView2)\runtimes\win-x64\native\WebView2Loader.dll" Link="WebView2Loader.dll"
-             IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(PkgMicrosoft_Web_WebView2)\runtimes\win-x64\native\WebView2Loader.dll" Link="WebView2Loader.dll" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <!-- ダイアログの部品の見た目（dialog\Dialogs.cs の DialogStyles.Load が、実行時に読み込む） -->
