@@ -9,7 +9,7 @@
     <!-- VSIX settings -->
     <VSSDKBuildToolsAutoSetup>true</VSSDKBuildToolsAutoSetup>
     <GeneratePkgDefFile>true</GeneratePkgDefFile>
-    <Version>0.1.0.0</Version>
+    <Version>0.1.1.0</Version>
     <Copyright>Copyright © 2026 tanno-seiichi</Copyright>
   </PropertyGroup>
   <ItemGroup>
