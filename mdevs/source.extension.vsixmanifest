@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="mdevs.91f72ca7-7cd1-472b-98ba-20909b2c603c" Version="0.0.1.0" Language="en-US" Publisher="tanno-seiichi" />
+    <Identity Id="mdevs.91f72ca7-7cd1-472b-98ba-20909b2c603c" Version="0.1.0.0" Language="en-US" Publisher="tanno-seiichi" />
     <DisplayName>mdevs</DisplayName>
     <Description>Markdown（.md）のファイルを、mdew と同じ画面で直接編集するエディター。</Description>
     <!-- インストールの画面に表示するライセンス（mdevs のライセンスと、WebView2 のライセンス） -->
