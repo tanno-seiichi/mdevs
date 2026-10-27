@@ -410,3 +410,11 @@ body.theme-dark .md-menu button.active:not(:disabled) {
 }
 body.theme-dark .md-menu.kbd button:hover:not(.active):not(.submenu-open) { background: none; color: var(--vs-menu-fg, var(--text)); }
 body.theme-dark .md-menu hr { border-top-color: var(--vs-menu-sep, #454545); }
+
+/* 起動直後のちらつきを防ぐ（mdew と同じ）：main.js が前回の表示（アウトラインの表示・非表示、アウトラインの幅、
+   表示倍率等）を復元し、ホストから reveal が届いて body に app-ready を付けるまで、画面の中身を見せない。それまでは
+   背景を透明にして、ホストが Visual Studio の配色に合わせて設定した WebView2 の背景色（MarkdownWebHost.ApplyThemeBackground）を見せる。
+   main.js の読み込みに失敗した時も操作できなくならないよう、1.5 秒たったら表示する（app-reveal） */
+html body:not(.app-ready) { background: transparent; }
+html body:not(.app-ready) > * { visibility: hidden; animation: app-reveal 0s 1.5s forwards; }
+@keyframes app-reveal { to { visibility: visible; } }

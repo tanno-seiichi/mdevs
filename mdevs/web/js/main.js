@@ -19,7 +19,7 @@
 //                {cmd:'confirmClose', files:[{path, markdown, images, current}]} / {cmd:'openHelp'}
 //   host → web : {cmd:'load', path, name, docBase, markdown} /
 //                {cmd:'saved', path, name, docBase, markdown, replacements} /
-//                {cmd:'imagePasted', id, url, alt} / {cmd:'error', message} / {cmd:'focus'} / {cmd:'init', debug, tempDir} /
+//                {cmd:'imagePasted', id, url, alt} / {cmd:'error', message} / {cmd:'focus'} / {cmd:'reveal'} / {cmd:'init', debug, tempDir} /
 //                {cmd:'folderOpened', root, name} / {cmd:'dirList', path, dirs, files} /
 //                {cmd:'folderFiles', reqId, files:[{path, text}]} / {cmd:'savedAll', saved, failed:[{path, message}]} /
 //                {cmd:'findCommand', action, query, replacement, folder, matchCase, regex, index} /
@@ -2068,6 +2068,9 @@ if (host) {
         openWaiter.resolve(false);
         openWaiter = null;
       }
+    } else if ('reveal' === msg.cmd) {
+      // 起動直後：ホストが設定・文書を送り終えた（ready への返事の最後に届く）。画面を見せる（上の「起動」の app-ready 参照）
+      document.body.classList.add('app-ready');
     } else if ('focus' === msg.cmd) {
       // 起動直後：ウィンドウが表示されたら、すぐに書き始められるよう編集領域にカーソルを置く
       editor.focus();
@@ -2457,5 +2460,9 @@ window.__mdeTest = {
 // 起動時の引数のファイルがあれば load が届く）。ブラウザ単体の場合は、停止・入力遅延の回数も表示する。
 loadDocument('');
 updateTitle();
+// 前回の表示を復元し終えたら、画面を見せる（それまでは app.css の body:not(.app-ready) で隠している。起動直後に、
+// 既定の表示が一瞬見えてから前回の表示・設定に切り替わる、ちらつきを防ぐ）。ホストがある時は、設定と文書を受け取って
+// 表示し終えてから（ホストから reveal が届いた時）見せる
+if (!host) document.body.classList.add('app-ready');
 send({ cmd: 'ready' });
 if (!host) startStallMonitor();

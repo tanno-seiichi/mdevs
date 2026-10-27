@@ -454,6 +454,8 @@ namespace mdevs
                     {
                         PostLoad();
                     }
+                    // 設定・文書を送り終えたので、画面を見せてもらう（起動直後のちらつき防止。main.js の reveal）
+                    Post(new { cmd = "reveal" });
                     break;
                 case "dirty":
                     DirtyChanged?.Invoke((bool)msg["value"]);
