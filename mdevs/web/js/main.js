@@ -30,6 +30,7 @@
 import { Editor, showMenu, closeMenu } from './editor.js';
 import { setJoinSoftBreaks, parseBlocks, renderBlock, imageSource } from './markdown.js';
 import { FolderView, pathKey } from './folder.js';
+import { t, setLanguage, onLanguageChange } from './i18n.js';
 import { FindEngine, findAllIn, expandReplacement } from './find.js';
 import { setHostClipboardWriter } from './clipboard.js';
 
@@ -46,7 +47,7 @@ const $ = (a_id) => document.getElementById(a_id);
 /** 画面全体の状態。 */
 const state = {
   path: null, // 開いているファイルのパス（新規は null）
-  name: '無題', // タイトルバー等に表示するファイル名
+  name: t('無題'), // タイトルバー等に表示するファイル名
   dirty: false, // 保存していない変更があるか
   pendingSave: null, // 保存要求中の内容（保存完了時に元テキストとして取り込み直す）
   nextImageId: 1, // 貼り付けた画像の番号（ホストからの imagePasted と対応させる）
@@ -79,7 +80,7 @@ const editor = new Editor($('doc'), {
   onOpenLink: (a_href) => openLink(a_href),
   onError: (a_message) => alert(a_message),
   onHoverLink: (a_href) => {
-    $('status-link').textContent = a_href ? `クリックで開く：${a_href}` : '';
+    $('status-link').textContent = a_href ? t('クリックで開く：{0}', a_href) : '';
   },
   onOpenImage: (a_src) => {
     if (a_src) send({ cmd: 'openImage', src: a_src });
@@ -100,7 +101,7 @@ const editor = new Editor($('doc'), {
   // 結果（linkUrl）が届くまで覚えておく。ブラウザ単体で開いた時（動作確認用）は prompt で聞く
   onMakeLink: (a_range) => {
     if (!host) {
-      const url = (prompt('リンク先のURLを入力してください') || '').trim();
+      const url = (prompt(t('リンク先のURLを入力してください')) || '').trim();
       if (url) editor.makeLink(a_range, url);
       return;
     }
@@ -211,7 +212,7 @@ function setDocumentBase(a_docBase) {
 function setDirty(a_value) {
   if (state.dirty === a_value) return;
   state.dirty = a_value;
-  $('status-dirty').textContent = a_value ? '● 未保存' : '';
+  $('status-dirty').textContent = a_value ? t('● 未保存') : '';
   updateTitle();
   syncDirtyToHost();
   folderView.refresh();
@@ -341,7 +342,7 @@ function renderOutline(a_entries) {
   // 開いている祖先の見出し（レベルと折りたたんでいるか）。折りたたんだ見出しの下の見出しは表示しない
   const ancestors = [];
   a_entries.forEach((entry, i) => {
-    const name = entry.text || '(無題)';
+    const name = entry.text || t('(無題)');
     const base = `${entry.level}\t${name}`;
     const n = (counts.get(base) || 0) + 1;
     counts.set(base, n);
@@ -357,7 +358,7 @@ function renderOutline(a_entries) {
     toggle.className = 'toggle';
     if (hasChildren) {
       toggle.textContent = collapsed ? '▸' : '▾';
-      toggle.title = collapsed ? '広げる' : '折りたたむ';
+      toggle.title = collapsed ? t('広げる') : t('折りたたむ');
       toggle.addEventListener('click', (e) => {
         e.stopPropagation();
         if (collapsed) collapsedOutline.delete(key);
@@ -392,11 +393,11 @@ function openLink(a_href) {
   }
   const path = a_href.split('#')[0];
   if (!/^[a-z][a-z0-9+.-]*:/i.test(a_href) && /\.(md|markdown)$/i.test(path)) {
-    if (mustConfirmDiscard() && !confirm('保存されていない変更があります。破棄してリンク先のファイルを開きますか？')) return;
+    if (mustConfirmDiscard() && !confirm(t('保存されていない変更があります。破棄してリンク先のファイルを開きますか？'))) return;
     send({ cmd: 'openRelative', path: decodeURIComponentSafe(path) });
     return;
   }
-  alert(`このリンクは開けません。\n${a_href}`);
+  alert(t('このリンクは開けません。\n{0}', a_href));
 }
 
 /**
@@ -430,7 +431,7 @@ function slugify(a_text) {
 function jumpToHeading(a_fragment) {
   const h = findHeading(editor.headings(), a_fragment);
   if (!h) {
-    alert(`リンク先の見出しが見つかりません。\n#${a_fragment}`);
+    alert(t('リンク先の見出しが見つかりません。\n#{0}', a_fragment));
     return;
   }
   h.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -600,7 +601,7 @@ let openWaiter = null;
  */
 function openFile(a_path) {
   if (state.path && pathKey(a_path) === pathKey(state.path)) return Promise.resolve(true);
-  if (mustConfirmDiscard() && !confirm('保存されていない変更があります。破棄して別のファイルを開きますか？')) {
+  if (mustConfirmDiscard() && !confirm(t('保存されていない変更があります。破棄して別のファイルを開きますか？'))) {
     return Promise.resolve(false);
   }
   if (!host) return Promise.resolve(false);
@@ -619,7 +620,7 @@ function openFile(a_path) {
 function openRecent(a_path) {
   if (state.path && pathKey(a_path) === pathKey(state.path)) return;
   if (opensInNewWindow()) { send({ cmd: 'openRecent', path: a_path, newWindow: true }); return; }
-  if (mustConfirmDiscard() && !confirm('保存されていない変更があります。破棄して別のファイルを開きますか？')) return;
+  if (mustConfirmDiscard() && !confirm(t('保存されていない変更があります。破棄して別のファイルを開きますか？'))) return;
   send({ cmd: 'openRecent', path: a_path });
 }
 
@@ -632,7 +633,7 @@ function openRecentFolder(a_path) {
   // このウィンドウで既に開いているフォルダなら、何もしない（同じフォルダを2つのウィンドウで開かないように）
   if (folderView.isOpen && pathKey(a_path) === pathKey(folderView.rootPath)) return;
   if (opensInNewWindow()) { send({ cmd: 'openRecentFolder', path: a_path, newWindow: true }); return; }
-  if (hasUnsaved() && !confirm('保存されていない変更があります。破棄して別のフォルダを開きますか？')) return;
+  if (hasUnsaved() && !confirm(t('保存されていない変更があります。破棄して別のフォルダを開きますか？'))) return;
   send({ cmd: 'openRecentFolder', path: a_path, relPath: folderView.relativePath(state.path) });
 }
 
@@ -644,7 +645,7 @@ function openRecentFolder(a_path) {
  */
 function doOpenFolder(a_fromMenu = false) {
   if (a_fromMenu && opensInNewWindow()) { send({ cmd: 'openFolder', newWindow: true }); return; }
-  if (hasUnsaved() && !confirm('保存されていない変更があります。破棄して別のフォルダを開きますか？')) return;
+  if (hasUnsaved() && !confirm(t('保存されていない変更があります。破棄して別のフォルダを開きますか？'))) return;
   send({ cmd: 'openFolder', relPath: folderView.relativePath(state.path) });
 }
 
@@ -707,7 +708,7 @@ function doSaveAll() {
   for (const p of pendingEdits.values()) files.push({ path: p.path, markdown: p.markdown, images: p.images || [] });
   // 保存するものが無ければ何もしない（mde と同じ。新規の文書は対象外。「保存」で保存する）
   if (!files.length) return;
-  if (!confirm('編集中のすべてのファイルを保存します。よろしいですか？')) {
+  if (!confirm(t('編集中のすべてのファイルを保存します。よろしいですか？'))) {
     state.pendingSave = null;
     return;
   }
@@ -908,25 +909,25 @@ sourceArea.addEventListener('contextmenu', (e) => {
   if (state.readOnly) {
     // 読み取り専用（ヘルプ）：編集しない項目だけ
     showMenu(e.clientX, e.clientY, [
-      { label: 'コピー', key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
+      { label: t('コピー'), key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
       null,
-      { label: 'すべて選択', key: 'Ctrl+A', run: () => sourceArea.select() },
+      { label: t('すべて選択'), key: 'Ctrl+A', run: () => sourceArea.select() },
       null,
-      { label: 'ページトップに戻る', run: () => scrollToPageTop() },
-      { label: 'Markdownモードに切り替え', run: () => setSourceMode(false) },
+      { label: t('ページトップに戻る'), run: () => scrollToPageTop() },
+      { label: t('Markdownモードに切り替え'), run: () => setSourceMode(false) },
     ], (a_item) => a_item.run());
     return;
   }
   showMenu(e.clientX, e.clientY, [
-    { label: '切り取り', key: 'Ctrl+X', disabled: !hasSelection, run: () => document.execCommand('cut') },
-    { label: 'コピー', key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
-    { label: '貼り付け', key: 'Ctrl+V', run: () => pasteIntoSource() },
+    { label: t('切り取り'), key: 'Ctrl+X', disabled: !hasSelection, run: () => document.execCommand('cut') },
+    { label: t('コピー'), key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
+    { label: t('貼り付け'), key: 'Ctrl+V', run: () => pasteIntoSource() },
     null,
-    { label: 'すべて選択', key: 'Ctrl+A', run: () => sourceArea.select() },
+    { label: t('すべて選択'), key: 'Ctrl+A', run: () => sourceArea.select() },
     null,
-    { label: 'ページトップに戻る', run: () => scrollToPageTop() },
-    { label: 'Markdownモードに切り替え', run: () => setSourceMode(false) },
-    ...(host ? [null, { label: 'ヘルプを開く', run: () => send({ cmd: 'openHelp' }) }] : []),
+    { label: t('ページトップに戻る'), run: () => scrollToPageTop() },
+    { label: t('Markdownモードに切り替え'), run: () => setSourceMode(false) },
+    ...(host ? [null, { label: t('ヘルプを開く'), run: () => send({ cmd: 'openHelp' }) }] : []),
   ], (a_item) => a_item.run());
 });
 
@@ -939,7 +940,7 @@ function setReadOnly(a_on) {
   editor.setReadOnly(a_on);
   sourceArea.readOnly = a_on;
   document.body.classList.toggle('read-only', a_on);
-  $('status-host').textContent = a_on ? '読み取り専用（ヘルプ）' : '';
+  $('status-host').textContent = a_on ? t('読み取り専用（ヘルプ）') : '';
 }
 
 /**
@@ -965,7 +966,7 @@ async function pasteIntoSource() {
   try {
     text = await navigator.clipboard.readText();
   } catch {
-    alert('クリップボードを読み取れませんでした。Ctrl+V で貼り付けてください。');
+    alert(t('クリップボードを読み取れませんでした。Ctrl+V で貼り付けてください。'));
     return;
   }
   sourceArea.focus();
@@ -1160,7 +1161,7 @@ function opensInNewWindow() {
  * 開く。このウィンドウで開く時は、未保存の変更があれば先に確認する）。 */
 function doOpen() {
   if (opensInNewWindow()) { send({ cmd: 'open', newWindow: true }); return; }
-  if (mustConfirmDiscard() && !confirm('保存されていない変更があります。破棄して別のファイルを開きますか？')) return;
+  if (mustConfirmDiscard() && !confirm(t('保存されていない変更があります。破棄して別のファイルを開きますか？'))) return;
   send({ cmd: 'open' });
 }
 /**
@@ -1294,9 +1295,9 @@ function isPaneVisible(a_class) {
  * body のクラス（no-folderpane・no-outline・source-mode）が変わるたびに呼ばれる（下の MutationObserver）。
  */
 function updatePaneButtons() {
-  $('status-folder').textContent = isPaneVisible('no-folderpane') ? 'フォルダを隠す' : 'フォルダを表示';
-  $('status-outline').textContent = isPaneVisible('no-outline') ? 'アウトラインを隠す' : 'アウトラインを表示';
-  $('status-source').textContent = document.body.classList.contains('source-mode') ? 'Markdownを表示' : 'ソースを表示';
+  $('status-folder').textContent = isPaneVisible('no-folderpane') ? t('フォルダを隠す') : t('フォルダを表示');
+  $('status-outline').textContent = isPaneVisible('no-outline') ? t('アウトラインを隠す') : t('アウトラインを表示');
+  $('status-source').textContent = document.body.classList.contains('source-mode') ? t('Markdownを表示') : t('ソースを表示');
 }
 for (const [id, cmd] of [['status-folder', 'toggleFolder'], ['status-outline', 'toggleOutline'], ['status-source', 'toggleSource']]) {
   // mousedown で既定の動作を止めて、編集中のカーソル位置を保つ
@@ -1453,6 +1454,7 @@ try {
  *   ホストからの settings のメッセージ
  */
 function applySettings(a_settings) {
+  if (a_settings.language) setLanguage(a_settings.language);
   if (a_settings.docStyle) setDocStyle(a_settings.docStyle);
   if (a_settings.textColor) setTextColor(a_settings.textColor);
   if ('boolean' === typeof a_settings.fullWidth) setFullWidth(a_settings.fullWidth);
@@ -1649,35 +1651,35 @@ const MENUS = {
     button: $('menu-file'),
     key: 'f',
     items: () => [
-      { label: '新規', key: 'Ctrl+N', cmd: 'new' },
-      { label: '開く', key: 'Ctrl+O', cmd: 'open' },
-      { label: 'フォルダを開く...', cmd: 'openFolder' },
+      { label: t('新規'), key: 'Ctrl+N', cmd: 'new' },
+      { label: t('開く'), key: 'Ctrl+O', cmd: 'open' },
+      { label: t('フォルダを開く...'), cmd: 'openFolder' },
         null,
       // 最近使ったファイル（mde と同じくサブメニュー。パスはフルパスで表示する）
       {
-        label: '最近使ったファイル',
+        label: t('最近使ったファイル'),
         submenu: state.recentFiles.length
           ? [...state.recentFiles.map((p) => ({ label: p, title: p, path: true, run: () => openRecent(p) })), null,
-            { label: '履歴をクリア', cmd: 'clearRecent' }]
-          : [{ label: '（履歴なし）', disabled: true }],
+            { label: t('履歴をクリア'), cmd: 'clearRecent' }]
+          : [{ label: t('（履歴なし）'), disabled: true }],
       },
       // 最近使ったフォルダ（「フォルダを開く...」で開いたフォルダ。パスはフルパスで表示する）
       {
-        label: '最近使ったフォルダ',
+        label: t('最近使ったフォルダ'),
         submenu: state.recentFolders.length
           ? [...state.recentFolders.map((p) => ({ label: p, title: p, path: true, run: () => openRecentFolder(p) })), null,
-            { label: '履歴をクリア', cmd: 'clearRecentFolders' }]
-          : [{ label: '（履歴なし）', disabled: true }],
+            { label: t('履歴をクリア'), cmd: 'clearRecentFolders' }]
+          : [{ label: t('（履歴なし）'), disabled: true }],
       },
       null,
-      { label: '保存', key: 'Ctrl+S', cmd: 'save' },
-      { label: '名前を付けて保存', key: 'Ctrl+Shift+S', cmd: 'saveAs' },
-      { label: 'すべて保存', cmd: 'saveAll' },
+      { label: t('保存'), key: 'Ctrl+S', cmd: 'save' },
+      { label: t('名前を付けて保存'), key: 'Ctrl+Shift+S', cmd: 'saveAs' },
+      { label: t('すべて保存'), cmd: 'saveAll' },
       null,
-      { label: 'PDFに書き出し…', key: 'Ctrl+P', cmd: 'exportPdf' },
-      { label: 'PDFの余白を設定…', cmd: 'pdfMargin' },
+      { label: t('PDFに書き出し…'), key: 'Ctrl+P', cmd: 'exportPdf' },
+      { label: t('PDFの余白を設定…'), cmd: 'pdfMargin' },
       null,
-      { label: '閉じる', key: 'Ctrl+W', cmd: 'close' },
+      { label: t('閉じる'), key: 'Ctrl+W', cmd: 'close' },
     ],
   },
   view: {
@@ -1686,46 +1688,46 @@ const MENUS = {
     items: () => [
       // フォルダビューは「フォルダを開く...」で開いた時だけ表示できる
       {
-        label: 'フォルダを表示',
+        label: t('フォルダを表示'),
         checked: folderView.isOpen && isPaneVisible('no-folderpane'),
         disabled: !folderView.isOpen,
         cmd: 'toggleFolder',
       },
-      { label: 'アウトラインを表示', checked: isPaneVisible('no-outline'), cmd: 'toggleOutline' },
-      { label: 'ステータスバーを表示', checked: isPaneVisible('no-statusbar'), cmd: 'toggleStatusbar' },
+      { label: t('アウトラインを表示'), checked: isPaneVisible('no-outline'), cmd: 'toggleOutline' },
+      { label: t('ステータスバーを表示'), checked: isPaneVisible('no-statusbar'), cmd: 'toggleStatusbar' },
       null,
-      { label: 'ソースモード', checked: state.sourceMode, cmd: 'toggleSource' },
+      { label: t('ソースモード'), checked: state.sourceMode, cmd: 'toggleSource' },
       null,
       // 表示倍率（mde のステータスバーの「－」「100%」「＋」と同じ）
-      { label: `表示倍率：${Math.round(zoomLevel * 100)}%`, heading: true },
-      { label: '拡大', key: 'Ctrl++', cmd: 'zoomIn', disabled: zoomLevel >= ZOOM_MAX },
-      { label: '縮小', key: 'Ctrl+-', cmd: 'zoomOut', disabled: zoomLevel <= ZOOM_MIN },
-      { label: '100%に戻す', key: 'Ctrl+0', cmd: 'zoomReset', disabled: 1 === zoomLevel },
+      { label: t('表示倍率：{0}%', Math.round(zoomLevel * 100)), heading: true },
+      { label: t('拡大'), key: 'Ctrl++', cmd: 'zoomIn', disabled: zoomLevel >= ZOOM_MAX },
+      { label: t('縮小'), key: 'Ctrl+-', cmd: 'zoomOut', disabled: zoomLevel <= ZOOM_MIN },
+      { label: t('100%に戻す'), key: 'Ctrl+0', cmd: 'zoomReset', disabled: 1 === zoomLevel },
       null,
-      { label: '段落中の改行', heading: true },
-      { label: 'ソースの通りに改行する', checked: !joinSoftBreaks, cmd: 'softBreakSource' },
-      { label: '空行が入るまで改行しない', checked: joinSoftBreaks, cmd: 'softBreakJoin' },
+      { label: t('段落中の改行'), heading: true },
+      { label: t('ソースの通りに改行する'), checked: !joinSoftBreaks, cmd: 'softBreakSource' },
+      { label: t('空行が入るまで改行しない'), checked: joinSoftBreaks, cmd: 'softBreakJoin' },
       null,
-      { label: '本文の幅', heading: true },
-      { label: '読みやすい幅にする（最大 884px）', checked: !fullWidth, cmd: 'docWidthLimited' },
-      { label: '編集ペインの幅に合わせる', checked: fullWidth, cmd: 'docWidthFull' },
+      { label: t('本文の幅'), heading: true },
+      { label: t('読みやすい幅にする（最大 884px）'), checked: !fullWidth, cmd: 'docWidthLimited' },
+      { label: t('編集ペインの幅に合わせる'), checked: fullWidth, cmd: 'docWidthFull' },
       null,
-      { label: '文字の色', heading: true },
-      { label: 'くっきりした色', checked: 'sharp' === textColor, cmd: 'textColorSharp' },
-      { label: '目にやさしい色', checked: 'soft' === textColor, cmd: 'textColorSoft' },
+      { label: t('文字の色'), heading: true },
+      { label: t('くっきりした色'), checked: 'sharp' === textColor, cmd: 'textColorSharp' },
+      { label: t('目にやさしい色'), checked: 'soft' === textColor, cmd: 'textColorSoft' },
       null,
-      { label: '表示スタイル', heading: true },
-      { label: 'GitHubスタイル', checked: 'github' === docStyle, cmd: 'docStyleGithub' },
-      { label: 'VSCodeスタイル', checked: 'vscode' === docStyle, cmd: 'docStyleVscode' },
+      { label: t('表示スタイル'), heading: true },
+      { label: t('GitHubスタイル'), checked: 'github' === docStyle, cmd: 'docStyleGithub' },
+      { label: t('VSCodeスタイル'), checked: 'vscode' === docStyle, cmd: 'docStyleVscode' },
     ],
   },
   help: {
     button: $('menu-help'),
     key: 'h',
     items: () => [
-      { label: 'Readmeを開く', key: 'F1', cmd: 'readme' },
+      { label: t('Readmeを開く'), key: 'F1', cmd: 'readme' },
       null,
-      { label: 'バージョン情報', cmd: 'about' },
+      { label: t('バージョン情報'), cmd: 'about' },
     ],
   },
 };
@@ -1959,7 +1961,7 @@ if (host) {
       // ファイルを開いた（起動時の引数・開くダイアログ・相対パスのリンク・フォルダビュー・検索結果）
       const samePath = !!state.path && !!msg.path && pathKey(state.path) === pathKey(msg.path);
       // force：ホスト（Visual Studio）が確認済み（ほかのアプリでファイルが変更された時の読み直し）
-      if (samePath && state.dirty && !msg.force && !confirm('保存されていない変更を破棄して、ファイルを読み直しますか？')) {
+      if (samePath && state.dirty && !msg.force && !confirm(t('保存されていない変更を破棄して、ファイルを読み直しますか？'))) {
         resolveOpenWaiter(msg.path, true);
         return;
       }
@@ -2018,9 +2020,9 @@ if (host) {
       for (const p of msg.saved || []) pendingEdits.delete(pathKey(p));
       folderView.refresh();
       syncDirtyToHost();
-      let text = `${(msg.saved || []).length} 個のファイルを保存しました。`;
+      let text = t('{0} 個のファイルを保存しました。', (msg.saved || []).length);
       if (msg.failed && msg.failed.length) {
-        text += `\n\n保存に失敗したファイル:\n${msg.failed.map((f) => `${f.path} (${f.message})`).join('\n')}`;
+        text += t('\n\n保存に失敗したファイル:\n{0}', msg.failed.map((f) => `${f.path} (${f.message})`).join('\n'));
       }
       alert(text);
     } else if ('saved' === msg.cmd) {
@@ -2144,7 +2146,7 @@ if (host) {
     }
   });
 } else {
-  $('status-host').textContent = 'ブラウザ単体（保存・開くは無効）';
+  $('status-host').textContent = t('ブラウザ単体（保存・開くは無効）');
 }
 
 // ---- 停止・入力遅延の検出（IMEフリーズ検証用。Debug ビルドの時だけ）------------
@@ -2167,7 +2169,7 @@ function startStallMonitor() {
     if (gap > 200) {
       stalls++;
       maxStall = Math.max(maxStall, gap);
-      $('status-stall').textContent = `停止 ${stalls}回（最長 ${Math.round(maxStall)}ms）`;
+      $('status-stall').textContent = t('停止 {0}回（最長 {1}ms）', stalls, Math.round(maxStall));
     }
     lastTick = now;
   }, 20);
@@ -2179,14 +2181,14 @@ function startStallMonitor() {
       if (lag > 200 && lag < 60000) {
         lags++;
         maxLag = Math.max(maxLag, lag);
-        $('status-lag').textContent = `入力遅延 ${lags}回（最長 ${Math.round(maxLag)}ms）`;
+        $('status-lag').textContent = t('入力遅延 {0}回（最長 {1}ms）', lags, Math.round(maxLag));
       }
     }, true);
   }
   setTimeout(() => {
     stalls = 0; maxStall = 0; lags = 0; maxLag = 0;
-    $('status-stall').textContent = '停止 0回';
-    $('status-lag').textContent = '入力遅延 0回';
+    $('status-stall').textContent = t('停止 0回');
+    $('status-lag').textContent = t('入力遅延 0回');
   }, 2000);
 }
 
@@ -2454,6 +2456,19 @@ window.__mdeTest = {
   findUpdates,
   editor,
 };
+
+// ---- 画面の言語（日本語・英語。i18n.js）-----------------------------------------
+// 言語が変わった時（ホストの settings の language）：その時々に作る文字（ステータスバー・タイトル・アウトライン等）を
+// 作り直す（index.html に直接書いた文字は、i18n.js の translateDom が置き換える）
+onLanguageChange(() => {
+  if (!state.path) state.name = t('無題');
+  updateTitle();
+  $('status-dirty').textContent = state.dirty ? t('● 未保存') : '';
+  if (state.readOnly) $('status-host').textContent = t('読み取り専用（ヘルプ）');
+  else if (!host) $('status-host').textContent = t('ブラウザ単体（保存・開くは無効）');
+  updatePaneButtons();
+  buildOutline();
+});
 
 // ---- 起動 -----------------------------------------------------------------
 // 空の文書を表示してから、ホストに準備ができたことを知らせる（ホストから init が届き、

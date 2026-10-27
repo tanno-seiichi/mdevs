@@ -1,7 +1,8 @@
 ﻿// MdevsOptionsPage.cs
 //
 // mdevs（mdew の Visual Studio 版）の一部。
-// Visual Studio の「ツール」→「オプション」の mdevs の設定（表示スタイル・文字の色・本文の幅・段落中の改行）。
+// Visual Studio の「ツール」→「オプション」の mdevs の設定（言語・表示スタイル・文字の色・本文の幅・段落中の改行）。
+// オプションの画面は Visual Studio が表示するため、mdevs の「言語」の設定では切り替わらない。名前・説明は英語と日本語を並べて書く。
 // mdew のメニュー「表示」の同じ名前の項目に当たる。
 
 using System;
@@ -14,13 +15,25 @@ using Microsoft.VisualStudio.Shell;
 
 namespace mdevs
 {
+    /// <summary>画面の言語（自動：Visual Studio の表示言語に合わせる）。</summary>
+    [TypeConverter(typeof(DisplayNameEnumConverter))]
+    public enum UILanguage
+    {
+        [Description("Auto (自動)")]
+        Auto,
+        [Description("日本語 (Japanese)")]
+        Japanese,
+        [Description("English (英語)")]
+        English,
+    }
+
     /// <summary>表示スタイル（mdew のメニュー「表示」→「表示スタイル」）。</summary>
     [TypeConverter(typeof(DisplayNameEnumConverter))]
     public enum DocStyle
     {
-        [Description("GitHubスタイル")]
+        [Description("GitHub style (GitHubスタイル)")]
         GitHub,
-        [Description("VSCodeスタイル")]
+        [Description("VS Code style (VSCodeスタイル)")]
         VSCode,
     }
 
@@ -28,9 +41,9 @@ namespace mdevs
     [TypeConverter(typeof(DisplayNameEnumConverter))]
     public enum TextColor
     {
-        [Description("くっきりした色")]
+        [Description("Sharp (くっきりした色)")]
         Sharp,
-        [Description("目にやさしい色")]
+        [Description("Easy on the eyes (目にやさしい色)")]
         Soft,
     }
 
@@ -38,9 +51,9 @@ namespace mdevs
     [TypeConverter(typeof(DisplayNameEnumConverter))]
     public enum DocWidth
     {
-        [Description("読みやすい幅にする（最大 884px）")]
+        [Description("Readable width, max 884px (読みやすい幅にする（最大 884px）)")]
         Limited,
-        [Description("編集ペインの幅に合わせる")]
+        [Description("Fit to the editor width (編集ペインの幅に合わせる)")]
         Full,
     }
 
@@ -48,9 +61,9 @@ namespace mdevs
     [TypeConverter(typeof(DisplayNameEnumConverter))]
     public enum SoftBreak
     {
-        [Description("空行が入るまで改行しない")]
+        [Description("Do not break until a blank line (空行が入るまで改行しない)")]
         Join,
-        [Description("ソースの通りに改行する")]
+        [Description("Break lines as in the source (ソースの通りに改行する)")]
         Source,
     }
 
@@ -69,24 +82,29 @@ namespace mdevs
         /// <summary>設定が変わった時（「OK」を押した時）。</summary>
         public static event Action Changed;
 
-        [Category("表示")]
-        [DisplayName("表示スタイル")]
-        [Description("文書の見た目。GitHubスタイルは GitHub の Markdown に近い見た目、VSCodeスタイルは Visual Studio Code の Markdown のプレビューに近い見た目。")]
+        [Category("Display (表示)")]
+        [DisplayName("Language (言語)")]
+        [Description("Language of the editor screen, messages, dialogs, and help. Auto follows the Visual Studio display language (Japanese if it is Japanese, otherwise English). / 編集画面・お知らせ・ダイアログ・ヘルプの言語。自動の時は Visual Studio の表示言語に合わせる（日本語の時は日本語、それ以外は英語）。")]
+        public UILanguage Language { get; set; } = UILanguage.Auto;
+
+        [Category("Display (表示)")]
+        [DisplayName("Display Style (表示スタイル)")]
+        [Description("The look of documents. GitHub style looks like Markdown on GitHub; VS Code style looks like the Markdown preview of Visual Studio Code. / 文書の見た目。GitHubスタイルは GitHub の Markdown に近い見た目、VSCodeスタイルは Visual Studio Code の Markdown のプレビューに近い見た目。")]
         public DocStyle DocStyle { get; set; } = DocStyle.GitHub;
 
-        [Category("表示")]
-        [DisplayName("文字の色")]
-        [Description("くっきりした色はほぼ黒、目にやさしい色は少し薄い灰色（暗いテーマの時は、それぞれ明るい色・少し暗い色）。")]
+        [Category("Display (表示)")]
+        [DisplayName("Text Color (文字の色)")]
+        [Description("Sharp is almost black; Easy on the eyes is a slightly lighter gray (with a dark theme, a light color and a slightly darker color, respectively). / くっきりした色はほぼ黒、目にやさしい色は少し薄い灰色（暗いテーマの時は、それぞれ明るい色・少し暗い色）。")]
         public TextColor TextColor { get; set; } = TextColor.Sharp;
 
-        [Category("表示")]
-        [DisplayName("本文の幅")]
-        [Description("読みやすい幅（最大 884px で中央に置く）か、編集ペインの幅いっぱいに広げるか。")]
+        [Category("Display (表示)")]
+        [DisplayName("Text Width (本文の幅)")]
+        [Description("A readable width (centered, max 884px), or the full width of the editor. / 読みやすい幅（最大 884px で中央に置く）か、編集ペインの幅いっぱいに広げるか。")]
         public DocWidth DocWidth { get; set; } = DocWidth.Limited;
 
-        [Category("表示")]
-        [DisplayName("段落中の改行")]
-        [Description("段落の中の改行（空行を挟まない改行）の表示。保存する内容は、どちらでも変わらない。")]
+        [Category("Display (表示)")]
+        [DisplayName("Line Breaks in Paragraphs (段落中の改行)")]
+        [Description("How line breaks within a paragraph (line breaks without a blank line) are shown. The saved content is the same either way. / 段落の中の改行（空行を挟まない改行）の表示。保存する内容は、どちらでも変わらない。")]
         public SoftBreak SoftBreak { get; set; } = SoftBreak.Join;
 
         /// <summary>「OK」を押した時：保存して、開いている編集ペインに反映する。</summary>
@@ -95,13 +113,13 @@ namespace mdevs
             base.OnApply(a_args);
             if (ApplyKind.Apply == a_args.ApplyBehavior)
             {
-                Log.Write($"設定を変えました（表示スタイル：{DocStyle}、文字の色：{TextColor}、本文の幅：{DocWidth}、段落中の改行：{SoftBreak}）。");
+                Log.Write($"設定を変えました（言語：{Language}、表示スタイル：{DocStyle}、文字の色：{TextColor}、本文の幅：{DocWidth}、段落中の改行：{SoftBreak}）。");
                 Changed?.Invoke();
             }
         }
     }
 
-    /// <summary>列挙型の値を、Description の名前（日本語）で表示する（オプションのページの選択肢）。保存する値は、列挙型の
+    /// <summary>列挙型の値を、Description の名前（英語と日本語）で表示する（オプションのページの選択肢）。保存する値は、列挙型の
     /// 値の名前（GitHub 等。registration.json の enum と同じ）のまま。</summary>
     public sealed class DisplayNameEnumConverter : EnumConverter
     {

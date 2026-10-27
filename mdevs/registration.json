@@ -3,13 +3,31 @@
   // （MdevsPackage の ProvideSettingsManifest で登録する。値の読み込みは MdevsSettings.cs）。
   // legacyOptionPageId：従来の画面のページ（MdevsOptionsPage）の GUID。新しい画面では、このページの代わりに表示する。
   // migration：従来の画面のページの値（レジストリ）と同じ値にしておく（従来の画面に切り替えた時も同じ設定になる）。
+  // オプションの画面は Visual Studio が表示するため、mdevs の「言語」の設定では切り替わらない。名前・説明は英語と日本語を並べて書く。
   "properties": {
+    "mdevs.display.language": {
+      "type": "string",
+      "title": "Language (言語)",
+      "description": "Language of the editor screen, messages, dialogs, and help. Auto follows the Visual Studio display language (Japanese if it is Japanese, otherwise English). / 編集画面・お知らせ・ダイアログ・ヘルプの言語。自動の時は Visual Studio の表示言語に合わせる（日本語の時は日本語、それ以外は英語）。",
+      "enum": [ "Auto", "Japanese", "English" ],
+      "enumItemLabels": [ "Auto (自動)", "日本語 (Japanese)", "English (英語)" ],
+      "default": "Auto",
+      "order": 5,
+      "migration": {
+        "pass": {
+          "input": {
+            "store": "VsUserSettingsRegistry",
+            "path": "DialogPage\\mdevs.MdevsOptionsPage\\Language"
+          }
+        }
+      }
+    },
     "mdevs.display.docStyle": {
       "type": "string",
-      "title": "表示スタイル",
-      "description": "文書の見た目。GitHubスタイルは GitHub の Markdown に近い見た目、VSCodeスタイルは Visual Studio Code の Markdown のプレビューに近い見た目。",
+      "title": "Display Style (表示スタイル)",
+      "description": "The look of documents. GitHub style looks like Markdown on GitHub; VS Code style looks like the Markdown preview of Visual Studio Code. / 文書の見た目。GitHubスタイルは GitHub の Markdown に近い見た目、VSCodeスタイルは Visual Studio Code の Markdown のプレビューに近い見た目。",
       "enum": [ "GitHub", "VSCode" ],
-      "enumItemLabels": [ "GitHubスタイル", "VSCodeスタイル" ],
+      "enumItemLabels": [ "GitHub style (GitHubスタイル)", "VS Code style (VSCodeスタイル)" ],
       "default": "GitHub",
       "order": 10,
       "migration": {
@@ -23,10 +41,10 @@
     },
     "mdevs.display.textColor": {
       "type": "string",
-      "title": "文字の色",
-      "description": "くっきりした色はほぼ黒、目にやさしい色は少し薄い灰色（暗いテーマの時は、それぞれ明るい色・少し暗い色）。",
+      "title": "Text Color (文字の色)",
+      "description": "Sharp is almost black; Easy on the eyes is a slightly lighter gray (with a dark theme, a light color and a slightly darker color, respectively). / くっきりした色はほぼ黒、目にやさしい色は少し薄い灰色（暗いテーマの時は、それぞれ明るい色・少し暗い色）。",
       "enum": [ "Sharp", "Soft" ],
-      "enumItemLabels": [ "くっきりした色", "目にやさしい色" ],
+      "enumItemLabels": [ "Sharp (くっきりした色)", "Easy on the eyes (目にやさしい色)" ],
       "default": "Sharp",
       "order": 20,
       "migration": {
@@ -40,10 +58,10 @@
     },
     "mdevs.display.docWidth": {
       "type": "string",
-      "title": "本文の幅",
-      "description": "読みやすい幅（最大 884px で中央に置く）か、編集ペインの幅いっぱいに広げるか。",
+      "title": "Text Width (本文の幅)",
+      "description": "A readable width (centered, max 884px), or the full width of the editor. / 読みやすい幅（最大 884px で中央に置く）か、編集ペインの幅いっぱいに広げるか。",
       "enum": [ "Limited", "Full" ],
-      "enumItemLabels": [ "読みやすい幅にする（最大 884px）", "編集ペインの幅に合わせる" ],
+      "enumItemLabels": [ "Readable width, max 884px (読みやすい幅にする（最大 884px）)", "Fit to the editor width (編集ペインの幅に合わせる)" ],
       "default": "Limited",
       "order": 30,
       "migration": {
@@ -57,10 +75,10 @@
     },
     "mdevs.display.softBreak": {
       "type": "string",
-      "title": "段落中の改行",
-      "description": "段落の中の改行（空行を挟まない改行）の表示。保存する内容は、どちらでも変わらない。",
+      "title": "Line Breaks in Paragraphs (段落中の改行)",
+      "description": "How line breaks within a paragraph (line breaks without a blank line) are shown. The saved content is the same either way. / 段落の中の改行（空行を挟まない改行）の表示。保存する内容は、どちらでも変わらない。",
       "enum": [ "Join", "Source" ],
-      "enumItemLabels": [ "空行が入るまで改行しない", "ソースの通りに改行する" ],
+      "enumItemLabels": [ "Do not break until a blank line (空行が入るまで改行しない)", "Break lines as in the source (ソースの通りに改行する)" ],
       "default": "Join",
       "order": 40,
       "migration": {
@@ -78,7 +96,7 @@
       "title": "mdevs"
     },
     "mdevs.display": {
-      "title": "表示",
+      "title": "Display (表示)",
       "order": 10,
       "legacyOptionPageId": "0edecf49-2fc1-4fbd-b44d-494d53d7fd05"
     }

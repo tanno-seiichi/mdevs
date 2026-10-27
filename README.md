@@ -1,97 +1,122 @@
 # mdevs
 
-mdevs は、Markdown ファイルをプレビューと同じ見た目のまま直接編集できる、Visual Studio の拡張機能です。
-Windows デスクトップ用の Markdown エディタ **mdew** の画面を、Visual Studio の中で使えるようにしたものです（VS Code 版は **mdevc**）。
+mdevs is a Visual Studio extension that lets you edit Markdown files directly, in a view that looks just like the
+preview (WYSIWYG). There is no separate editing pane and preview pane, so you can keep writing while you see exactly
+how the formatting looks.
 
-## インストール
+The editor is available in English and Japanese (see the Language setting below).
 
-1. Visual Studio をすべて閉じます。
-2. 配布された `mdevs.vsix` をダブルクリックすると、VSIX インストーラーが開くので、画面の指示に従ってインストールします。
+日本語の説明は [README.ja.md](https://github.com/tanno-seiichi/mdevs/blob/master/README.ja.md) を参照してください。
 
-対応する Visual Studio は Visual Studio 2026（バージョン 18.0 以降、64 ビット）です。編集画面の表示に Microsoft Edge WebView2 ランタイムを使います（Windows 11 には最初から入っています）。
+## Installation
 
-アンインストールは、Visual Studio の「拡張機能」→「拡張機能の管理」で mdevs を選んで行います。
+In Visual Studio, open Extensions > Manage Extensions, search for "mdevs", and install it.
 
-## 使い方
+To install from a `.vsix` file:
 
-- `.md`・`.markdown` のファイルをソリューションエクスプローラー等から開くと、mdevs の編集画面で開きます。
-- 書式の書き方・表の操作などの使い方は、編集画面の右クリック→「ヘルプを開く」で表示されるヘルプ（読み取り専用）を見てください。
-- テキストとして編集したい時は、ソリューションエクスプローラーでファイルを右クリック→「ファイルを開くアプリケーションの選択...」で「ソース コード (テキスト) エディター」を選んで開きます（同じ画面の「既定値として設定」で、既定の開き方も変えられます）。
-- 保存（Ctrl+S）、名前を付けて保存、未保存の印、閉じる時の確認、ほかのアプリでファイルが変更された時の読み直しは、通常のテキストファイルと同じく Visual Studio が行います。
-- 「フォルダーを指定して検索」（Ctrl+Shift+F）・「フォルダーを指定して置換」（Ctrl+Shift+H）も、そのまま使えます。置換した結果は、開いている mdevs の画面にもすぐに反映されます。「検索結果」の行をダブルクリックすると、ファイルを開いてその箇所を表示します。
+1. Close all instances of Visual Studio.
+2. Double-click the `mdevs.vsix` file. The VSIX Installer opens; follow the instructions on the screen.
 
-### 設定
+Requires Visual Studio 2026 (version 18.0 or later, 64-bit). The editor uses the Microsoft Edge WebView2 Runtime
+(included with Windows 11).
 
-Visual Studio の「ツール」→「オプション」→「mdevs」→「表示」で、次の設定を変えられます。変えた設定は、開いているすべての画面にすぐに反映されます。
+To uninstall, choose mdevs in Visual Studio under Extensions > Manage Extensions.
 
-| 設定 | 内容 |
+## Usage
+
+- `.md` and `.markdown` files opened from Solution Explorer or elsewhere open in the mdevs editor.
+- For how to write formatting, work with tables, and so on, see the help (read-only), which opens from the editor's
+  right-click menu → Open Help. The help is shown in the language of the editor (see the Language setting below).
+- To edit a file as plain text, right-click the file in Solution Explorer → "Open With...", and choose
+  "Source Code (Text) Editor" (click "Set as Default" in the same dialog to change the default way of opening).
+- Save (Ctrl+S), Save As, the unsaved-changes marker, confirmation when closing, and reloading when another app
+  changes the file are all handled by Visual Studio, just as for normal text files.
+- Find in Files (Ctrl+Shift+F) and Replace in Files (Ctrl+Shift+H) also work as usual. Replacements are shown
+  immediately in any open mdevs editor. Double-click a line in "Find Results" to open the file and show the match.
+
+### Settings
+
+In Visual Studio, open Tools > Options > mdevs > Display to change the following settings. Changes are applied
+immediately to all open editors.
+
+| Setting | Values |
 |---|---|
-| 表示スタイル | GitHubスタイル（既定）／VSCodeスタイル |
-| 文字の色 | くっきりした色（既定）／目にやさしい色 |
-| 本文の幅 | 読みやすい幅にする（最大 884px。既定）／編集ペインの幅に合わせる |
-| 段落中の改行 | 空行が入るまで改行しない（既定）／ソースの通りに改行する |
+| Language | Auto (default; follows the Visual Studio display language: Japanese if it is Japanese, otherwise English) / Japanese / English |
+| Display Style | GitHub style (default) / VS Code style |
+| Text Color | Sharp (default) / Easy on the eyes |
+| Text Width | Readable width (max 884px, default) / Fit to the editor width |
+| Line Breaks in Paragraphs | Do not break until a blank line (default) / Break lines as in the source |
 
-配色（明るい・暗い）は、Visual Studio の配色に合わせて自動で切り替わります。
+The Language setting applies to the editor screen, messages, dialogs, and the help. The options page itself is shown
+by Visual Studio, so its labels are written in both English and Japanese.
 
-### 検索と置換
+The light or dark appearance follows the Visual Studio color theme automatically.
 
-検索と置換には、Visual Studio の検索を使います。
+### Find and replace
 
-| 操作 | キー |
+Find and replace uses the Visual Studio search.
+
+| Operation | Keys |
 |---|---|
-| 検索と置換のウィンドウを開く | Ctrl+F・Ctrl+H |
-| 次を検索・前を検索 | F3・Shift+F3 |
+| Open the Find and Replace window | Ctrl+F / Ctrl+H |
+| Find next / find previous | F3 / Shift+F3 |
 
-「すべて置換」は、Markdown のソースに対して置き換えます（「**」やリンクの URL なども対象になります）。
+"Replace All" works on the Markdown source (so `**`, link URLs, and so on are also replaced).
 
-### キー操作
+### Keyboard
 
-編集画面で使うキー（文字の入力、太字の Ctrl+B・斜体の Ctrl+I・下線の Ctrl+U、元に戻す・やり直し、コピー・貼り付け、表示倍率の Ctrl++・Ctrl+-・Ctrl+0、取り消し線の Alt+Shift+5 等）は、編集画面が受け取ります。
-それ以外のキー（Ctrl+S・Ctrl+Tab・F5・Ctrl+Shift+B 等）は、Visual Studio のショートカットとして動きます。
+Keys used for editing (typing, Ctrl+B bold, Ctrl+I italic, Ctrl+U underline, undo / redo, copy / paste, zoom with
+Ctrl++ / Ctrl+- / Ctrl+0, Alt+Shift+5 strikethrough, etc.) are handled by the editor.
+Other keys (Ctrl+S, Ctrl+Tab, F5, Ctrl+Shift+B, etc.) work as Visual Studio shortcuts.
 
-### 画像の貼り付け
+### Pasting images
 
-クリップボードの画像を貼り付けると、保存するまでの間は一時フォルダに置き、保存した時に、編集しているファイルの隣の「`<ファイル名>.images`」フォルダへ `clipboard_image_1.png` のような名前で移して、そのフォルダへの相対パスを文書に書きます（mdew と同じです）。
+When you paste an image from the clipboard, it is kept in a temporary folder until you save. When you save, it is moved
+into a "`<file name>.images`" folder next to the file you are editing, with a name such as `clipboard_image_1.png`, and
+a relative path to that folder is written into the document.
 
-### mdew・mdevc との違い
+### Notes
 
-- メニューバー・フォルダビュー・PDF への書き出しはありません（ファイルを開く・フォルダの操作は Visual Studio のものを使います）。
-- 検索と置換は、mdew の検索と置換のウィンドウ・mdevc の検索と置換のバーの代わりに、Visual Studio の検索を使います。
+- Use Visual Studio to open files and work with folders. Find and replace uses the Visual Studio search.
 
-## 開発
+## Development
 
-### フォルダの構成
+### Folder structure
 
-| 場所 | 内容 |
+| Path | Contents |
 |---|---|
-| `mdevs.slnx` | ソリューション |
-| `mdevs/mdevsPackage.cs` | 拡張機能の入り口（エディターの登録・オプションのページの登録） |
-| `mdevs/MarkdownEditorFactory.cs` | `.md`・`.markdown` を開く時に、編集ペインを作るエディターファクトリー |
-| `mdevs/MarkdownEditorPane.cs` | 編集ペイン（Visual Studio の文書としての読み込み・保存、検索、ほかのアプリでの変更の検知等） |
-| `mdevs/MarkdownWebHost.cs` | 編集ペインの中身（WebView2 で画面を表示し、ファイルの読み書き・画像の貼り付け・リンクを開く等を受け持つ） |
-| `mdevs/KeyboardRouter.cs` | キー入力を、Visual Studio のショートカットと編集画面とに振り分ける |
-| `mdevs/NavigationCapture.cs` | 「検索結果」から開いた時に、その箇所を表示する |
-| `mdevs/MdevsOptionsPage.cs`・`MdevsSettings.cs`・`registration.json` | 「ツール」→「オプション」の設定 |
-| `mdevs/UiThread.cs`・`Log.cs` | UI スレッドでの処理、動作の記録（「出力」ウィンドウの「mdevs」） |
-| `mdevs/dialog/` | 「表を挿入…」「リンクにする…」のダイアログ |
-| `mdevs/help/HELP.md` | ヘルプ（右クリックの「ヘルプを開く」で、読み取り専用で開く。mdevc の help\HELP.md と内容をそろえる） |
-| `mdevs/web/` | 画面（mdew の画面を元にしたもの） |
-| `mdevs/images/mde.png` | 拡張機能のアイコン |
-| `mdevs/LICENSE.txt` | VSIX に入れるライセンス（mdevs の MIT License と、WebView2 のライセンス） |
-| `mdevs/source.extension.vsixmanifest` | 拡張機能の情報（名前・バージョン・発行者・対応する Visual Studio 等） |
+| `mdevs.slnx` | Solution |
+| `mdevs/mdevsPackage.cs` | Entry point of the extension (registers the editor and the options page) |
+| `mdevs/MarkdownEditorFactory.cs` | Editor factory that creates the editor pane when a `.md` or `.markdown` file is opened |
+| `mdevs/MarkdownEditorPane.cs` | Editor pane (loading and saving as a Visual Studio document, find, detecting changes by other apps, etc.) |
+| `mdevs/MarkdownWebHost.cs` | Contents of the editor pane (shows the screen with WebView2; reads and writes files, pastes images, opens links, etc.) |
+| `mdevs/KeyboardRouter.cs` | Routes key input between Visual Studio shortcuts and the editor screen |
+| `mdevs/NavigationCapture.cs` | Shows the match when a file is opened from "Find Results" |
+| `mdevs/MdevsOptionsPage.cs`, `MdevsSettings.cs`, `registration.json` | Settings under Tools > Options |
+| `mdevs/UiThread.cs`, `Log.cs` | Work on the UI thread, and the log (the "mdevs" pane of the Output window) |
+| `mdevs/dialog/` | The "Insert Table…" and "Make Link…" dialogs |
+| `mdevs/help/HELP.en.md`, `HELP.md` | Help in English / Japanese (opened read-only from the right-click menu → Open Help. The one for the language of the editor is opened) |
+| `mdevs/web/` | Editor screen (HTML, JavaScript, CSS). `js/i18n.js` holds the English text of the screen (the Japanese text is the key) |
+| `mdevs/Text.cs` | English text of the messages and dialogs shown by the extension (the Japanese text is the key) |
+| `mdevs/images/mde.png` | Icon of the extension |
+| `mdevs/LICENSE.txt` | License included in the VSIX (the mdevs MIT License and the WebView2 license) |
+| `mdevs/source.extension.vsixmanifest` | Information about the extension (name, version, publisher, supported Visual Studio, etc.) |
+| `README.md`, `README.ja.md` | This file (English) / Japanese version |
 
-### ビルド・動作の確認
+### Building and trying it out
 
-1. Visual Studio 2026 に「Visual Studio 拡張機能の開発」のワークロードを入れておきます。
-2. `mdevs.slnx` を開いてビルドします。
-3. F5 を押すと、mdevs を読み込んだ Visual Studio（実験用インスタンス）が起動するので、`.md` ファイルを開いて確かめます。
-4. 動作の記録は「表示」→「出力」の「出力元」で「mdevs」を選ぶと表示されます。画面側は、編集画面で F12 を押すと開発者ツールが開きます。
+1. Install the "Visual Studio extension development" workload in Visual Studio 2026.
+2. Open `mdevs.slnx` and build.
+3. Press F5 to start Visual Studio with mdevs loaded (the experimental instance), and open a `.md` file.
+4. The log is shown under View > Output by choosing "mdevs" in "Show output from". For the editor screen itself, press
+   F12 in the editor to open the developer tools.
 
-### 配布用の VSIX の作り方
+### Building the VSIX
 
-構成を「Release」にしてビルドすると、`mdevs\bin\Release\net472\mdevs.vsix` ができます。これが配布するファイルです。
-バージョンは `source.extension.vsixmanifest` の `Version`（VSIX のバージョン）と、`mdevs.csproj` の `Version`（DLL のバージョン）で変えます。
+Build with the "Release" configuration to create `mdevs\bin\Release\net472\mdevs.vsix`. This is the file to distribute.
+Change the version with `Version` in `source.extension.vsixmanifest` (the VSIX version) and `Version` in
+`mdevs.csproj` (the DLL version).
 
-## ライセンス
+## License
 
-MIT License（LICENSE.txt）。mdevs が使用している WebView2 のライセンスは `mdevs\LICENSE.txt` にあります。
+MIT License (LICENSE.txt). The license of WebView2, which mdevs uses, is in `mdevs\LICENSE.txt`.

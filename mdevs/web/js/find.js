@@ -19,6 +19,8 @@
 // 入力欄の後ろに重ねた要素。どちらも未保存にならない）。
 // フォルダ全体の置換は、保存するまでファイルには書き出さない（main.js が「保存していない内容」として持つ）。
 
+import { t as tr } from './i18n.js';
+
 /** 検索結果の一覧に出す段落の文字数（これより長い場合は切り詰めて「…」を付ける。mde と同じ）。 */
 const RESULT_TEXT_MAX = 70;
 /** 1件ずつ置換で、見つかった箇所の前後に表示する文字数（mde と同じ）。 */
@@ -621,7 +623,7 @@ export class FindEngine {
     try {
       return new RegExp(this.opts.wholeWord ? `(?<![A-Za-z0-9_])(?:${pattern})(?![A-Za-z0-9_])` : pattern, flags);
     } catch (ex) {
-      this.setStatus(`正規表現が正しくありません：${ex.message}`);
+      this.post({ status: tr('正規表現が正しくありません：{0}', ex.message), regexError: true });
       return null;
     }
   }
@@ -637,7 +639,7 @@ export class FindEngine {
   /** 今開いているファイルの名前（新規の文書は「無題」）。 */
   currentName() {
     const p = this.d.currentPath();
-    return p ? p.split(/[\\/]/).pop() : '無題';
+    return p ? p.split(/[\\/]/).pop() : tr('無題');
   }
 
   // ===== 前を検索・次を検索 =====
@@ -657,11 +659,11 @@ export class FindEngine {
       const i = t.pick(matches, t.anchor(), a_backward, true);
       if (i < 0) {
         t.clearCurrent();
-        this.setStatus('見つかりませんでした。');
+        this.setStatus(tr('見つかりませんでした。'));
         return;
       }
       t.select(matches[i], matches);
-      this.setStatus('見つかりました（エディタ内で強調表示しています）。');
+      this.setStatus(tr('見つかりました（エディタ内で強調表示しています）。'));
       return;
     }
     // フォルダ全体：今のファイルの中に次（前）の箇所があればそこへ、無ければ次（前）のファイルを開く
@@ -670,14 +672,14 @@ export class FindEngine {
     if (j >= 0) {
       t.highlight(here);
       t.select(here[j], here);
-      this.setStatus(`見つかりました：${this.currentName()}（${j + 1} / ${here.length}件目）`);
+      this.setStatus(tr('見つかりました：{0}（{1} / {2}件目）', this.currentName(), j + 1, here.length));
       return;
     }
     const files = await this.d.folderFiles();
     const hitFiles = files.filter((f) => findAllIn(f.text, re).length);
     if (!hitFiles.length) {
       t.clearCurrent();
-      this.setStatus('見つかりませんでした。');
+      this.setStatus(tr('見つかりませんでした。'));
       return;
     }
     const keys = files.map((f) => f.path.toLowerCase());
@@ -697,13 +699,13 @@ export class FindEngine {
     t.highlight(matches);
     if (!matches.length) {
       t.clearCurrent();
-      this.setStatus(`見つかりました：${this.currentName()}（画面に表示されない部分。リンクの URL 等）`);
+      this.setStatus(tr('見つかりました：{0}（画面に表示されない部分。リンクの URL 等）', this.currentName()));
       return;
     }
     const k = a_backward ? matches.length - 1 : 0;
     t.select(matches[k], matches);
     this.selectResult(target.path);
-    this.setStatus(`見つかりました：${this.currentName()}（${k + 1} / ${matches.length}件目）`);
+    this.setStatus(tr('見つかりました：{0}（{1} / {2}件目）', this.currentName(), k + 1, matches.length));
   }
 
   // ===== すべて検索 =====
@@ -722,12 +724,12 @@ export class FindEngine {
       t.highlight(matches);
       if (!matches.length) {
         this.hideResults();
-        this.setStatus('見つかりませんでした。');
+        this.setStatus(tr('見つかりませんでした。'));
         return;
       }
       this.showResults(matches.map((m) => ({ label: m.label, open: () => this.goToMatch(m) })));
-      const where = this.d.source.active() ? 'エディタ内' : 'エディタ内・アウトライン';
-      this.setStatus(`${matches.length} 件見つかりました（すべて${where}で強調表示しています。ダブルクリックでその箇所へ移動します）。`);
+      const where = this.d.source.active() ? tr('エディタ内') : tr('エディタ内・アウトライン');
+      this.setStatus(tr('{0} 件見つかりました（すべて{1}で強調表示しています。ダブルクリックでその箇所へ移動します）。', matches.length, where));
       return;
     }
     const files = await this.d.folderFiles();
@@ -742,16 +744,16 @@ export class FindEngine {
     if (!hits.length) {
       this.hideResults();
       this.d.folder.clearSearchHits();
-      this.setStatus('見つかりませんでした。');
+      this.setStatus(tr('見つかりませんでした。'));
       return;
     }
     this.showResults(hits.map((h) => ({
-      label: `${this.d.folder.relativePath(h.path) || h.path}　（${h.count}件）`,
+      label: tr('{0}　（{1}件）', this.d.folder.relativePath(h.path) || h.path, h.count),
       path: h.path,
       open: () => this.openResultFile(h.path),
     })));
     await this.d.folder.setSearchHits(hits.map((h) => h.path));
-    this.setStatus(`${hits.length} 個のファイルで見つかりました（フォルダビューでも強調表示しています）。ダブルクリックで開きます。`);
+    this.setStatus(tr('{0} 個のファイルで見つかりました（フォルダビューでも強調表示しています）。ダブルクリックで開きます。', hits.length));
   }
 
   /**
@@ -821,7 +823,7 @@ export class FindEngine {
       if (count) this.d.replaceCurrentMarkdown(text.replace(re, replaceText));
       this.hideResults();
       this.afterReplace();
-      this.setStatus(count ? `${count} 件を置換しました（保存するまでファイルには反映されません）。` : '見つかりませんでした。');
+      this.setStatus(count ? tr('{0} 件を置換しました（保存するまでファイルには反映されません）。', count) : tr('見つかりませんでした。'));
       return;
     }
     const files = await this.d.folderFiles();
@@ -837,15 +839,15 @@ export class FindEngine {
     this.afterReplace();
     if (!done.length) {
       this.hideResults();
-      this.setStatus('見つかりませんでした。');
+      this.setStatus(tr('見つかりませんでした。'));
       return;
     }
     this.showResults(done.map((h) => ({
-      label: `${this.d.folder.relativePath(h.path) || h.path}　（${h.count}件置換）`,
+      label: tr('{0}　（{1}件置換）', this.d.folder.relativePath(h.path) || h.path, h.count),
       path: h.path,
       open: () => this.openResultFile(h.path),
     })));
-    this.setStatus(`${done.length} 個のファイルで合計 ${total} 件を置換しました（保存するまでファイルには書き出されません。メニュー「ファイル」→「すべて保存」で反映してください）。`);
+    this.setStatus(tr('{0} 個のファイルで合計 {1} 件を置換しました（保存するまでファイルには書き出されません。メニュー「ファイル」→「すべて保存」で反映してください）。', done.length, total));
   }
 
   /**
@@ -879,7 +881,7 @@ export class FindEngine {
       const t = this.target;
       t.clearCurrent();
       this.m_step = { folder: false, re, count: 0, target: t, anchor: t.anchor() };
-      this.post({ step: { file: '現在のファイル', context: 'エディタ内で強調表示された箇所をご確認ください。' } });
+      this.post({ step: { file: tr('現在のファイル'), context: tr('エディタ内で強調表示された箇所をご確認ください。') } });
       this.stepShowNext();
       return;
     }
@@ -1013,12 +1015,12 @@ export class FindEngine {
     this.afterReplace();
     if (!st.folder) {
       this.setStatus(st.count
-        ? `${st.count} 件を置換しました（現在のファイルに直接反映されました。保存するまでファイルには書き出されません）。`
-        : '見つかりませんでした。');
+        ? tr('{0} 件を置換しました（現在のファイルに直接反映されました。保存するまでファイルには書き出されません）。', st.count)
+        : tr('見つかりませんでした。'));
     } else {
       this.setStatus(st.count
-        ? `${st.count} 件を置換しました（${st.touched} 個のファイル、保存するまでファイルには反映されません）。`
-        : '見つかりませんでした。');
+        ? tr('{0} 件を置換しました（{1} 個のファイル、保存するまでファイルには反映されません）。', st.count, st.touched)
+        : tr('見つかりませんでした。'));
     }
   }
 

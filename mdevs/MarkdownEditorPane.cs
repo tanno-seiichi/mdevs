@@ -399,7 +399,7 @@ namespace mdevs
             catch (Exception ex)
             {
                 Log.Write($"保存できませんでした：{path}", ex);
-                VsShellUtilities.ShowMessageBox(m_package, $"保存できませんでした。\n{ex.Message}", "mdevs",
+                VsShellUtilities.ShowMessageBox(m_package, Text.T("保存できませんでした。\n{0}", ex.Message), "mdevs",
                     OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
                 return Marshal.GetHRForException(ex);
             }
@@ -423,7 +423,7 @@ namespace mdevs
 
         int IPersistFileFormat.GetFormatList(out string a_formatList)
         {
-            a_formatList = FILE_FORMAT_LIST;
+            a_formatList = Text.T(FILE_FORMAT_LIST);
             return VSConstants.S_OK;
         }
         // ===== IVsFindTarget（Visual Studio の検索。Ctrl+F の「検索と置換」） =====
@@ -730,7 +730,7 @@ namespace mdevs
             if (m_isDirty)
             {
                 int answer = VsShellUtilities.ShowMessageBox(m_package,
-                    $"{Path.GetFileName(m_fileName)} は、ほかのアプリで変更されました。\n保存していない変更を破棄して、読み直しますか？",
+                    Text.T("{0} は、ほかのアプリで変更されました。\n保存していない変更を破棄して、読み直しますか？", Path.GetFileName(m_fileName)),
                     "mdevs", OLEMSGICON.OLEMSGICON_QUERY, OLEMSGBUTTON.OLEMSGBUTTON_YESNO, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_SECOND);
                 if ((int)VSConstants.MessageBoxResult.IDYES != answer)
                 {

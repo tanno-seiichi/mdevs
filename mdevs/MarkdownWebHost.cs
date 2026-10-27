@@ -89,17 +89,34 @@ namespace mdevs
         /// <summary>開いているファイルが、ヘルプ（読み取り専用で表示する）か。</summary>
         private bool m_readOnly;
 
-        /// <summary>ヘルプのファイル（拡張機能のフォルダの help\HELP.md。右クリックの「ヘルプを開く」で、読み取り専用で開く）。</summary>
-        public static string HelpPath =>
-            Path.Combine(Path.GetDirectoryName(typeof(MarkdownWebHost).Assembly.Location), "help", "HELP.md");
+        /// <summary>ヘルプのファイル名（拡張機能のフォルダの help。日本語・英語）。</summary>
+        private static readonly string[] HELP_FILES = { "HELP.md", "HELP.en.md" };
 
-        /// <summary>ヘルプのファイルか。</summary>
+        /// <summary>ヘルプのファイル（右クリックの「ヘルプを開く」で、読み取り専用で開く）。画面の言語（設定の「言語」。自動の時は
+        /// Visual Studio の表示言語。MdevsSettings.Language）が日本語の時は help\HELP.md（日本語）、それ以外の時は
+        /// help\HELP.en.md（英語）。</summary>
+        public static string HelpPath => HelpFilePath("ja" == MdevsSettings.Language ? HELP_FILES[0] : HELP_FILES[1]);
+
+        /// <summary>ヘルプのファイルのパス。</summary>
+        /// <param name="a_fileName">ファイル名（HELP_FILES）。</param>
+        private static string HelpFilePath(string a_fileName) =>
+            Path.Combine(Path.GetDirectoryName(typeof(MarkdownWebHost).Assembly.Location), "help", a_fileName);
+
+        /// <summary>ヘルプのファイル（日本語・英語のどちらか）か。</summary>
         /// <param name="a_path">ファイルのパス。</param>
         private static bool IsHelpFile(string a_path)
         {
             try
             {
-                return string.Equals(Path.GetFullPath(a_path), Path.GetFullPath(HelpPath), StringComparison.OrdinalIgnoreCase);
+                string full = Path.GetFullPath(a_path);
+                foreach (string file in HELP_FILES)
+                {
+                    if (string.Equals(full, Path.GetFullPath(HelpFilePath(file)), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+                return false;
             }
             catch (Exception)
             {
@@ -146,8 +163,8 @@ namespace mdevs
                 Children.Clear();
                 Children.Add(new TextBlock
                 {
-                    Text = "Markdown の編集画面を表示できませんでした（WebView2 の準備に失敗しました）。\n" +
-                        "「出力」ウィンドウの「mdevs」に詳しい内容があります。\n\n" + ex.Message,
+                    Text = mdevs.Text.T("Markdown の編集画面を表示できませんでした（WebView2 の準備に失敗しました）。\n" +
+                        "「出力」ウィンドウの「mdevs」に詳しい内容があります。\n\n{0}", ex.Message),
                     Margin = new Thickness(16),
                     TextWrapping = TextWrapping.Wrap,
                 });
@@ -426,7 +443,7 @@ namespace mdevs
                 catch (Exception ex)
                 {
                     Log.Write("画面側からのメッセージの処理中にエラー", ex);
-                    PostError($"処理中にエラーが発生しました。\n{ex.Message}");
+                    PostError(mdevs.Text.T("処理中にエラーが発生しました。\n{0}", ex.Message));
                 }
             });
         }
@@ -850,7 +867,7 @@ namespace mdevs
             if (!Uri.TryCreate(a_url, UriKind.Absolute, out Uri uri) ||
                 ("http" != uri.Scheme && "https" != uri.Scheme && "mailto" != uri.Scheme))
             {
-                PostError($"このリンクは開けません。\n{a_url}");
+                PostError(mdevs.Text.T("このリンクは開けません。\n{0}", a_url));
                 return;
             }
             try
@@ -859,7 +876,7 @@ namespace mdevs
             }
             catch (Exception ex)
             {
-                PostError($"リンク先を開けませんでした。\n{a_url}\n{ex.Message}");
+                PostError(mdevs.Text.T("リンク先を開けませんでした。\n{0}\n{1}", a_url, ex.Message));
             }
         }
 
@@ -878,7 +895,7 @@ namespace mdevs
             }
             if (null == full || !File.Exists(full))
             {
-                PostError($"リンク先のファイルが見つかりません。\n{a_relativePath}");
+                PostError(mdevs.Text.T("リンク先のファイルが見つかりません。\n{0}", a_relativePath));
                 return;
             }
             OpenFileRequested?.Invoke(full);
@@ -898,7 +915,7 @@ namespace mdevs
             string path = ResolveImagePath(src);
             if (null == path || !File.Exists(path))
             {
-                PostError($"この画像は開けません（元のファイルが見つからないか、埋め込みの画像です）。\n{src}");
+                PostError(mdevs.Text.T("この画像は開けません（元のファイルが見つからないか、埋め込みの画像です）。\n{0}", src));
                 return;
             }
             try
@@ -907,7 +924,7 @@ namespace mdevs
             }
             catch (Exception ex)
             {
-                PostError($"画像を開けませんでした。\n{path}\n{ex.Message}");
+                PostError(mdevs.Text.T("画像を開けませんでした。\n{0}\n{1}", path, ex.Message));
             }
         }
 
@@ -983,7 +1000,7 @@ namespace mdevs
             }
             catch (Exception ex)
             {
-                PostError($"クリップボードの画像を貼り付けられませんでした。\n{ex.Message}");
+                PostError(mdevs.Text.T("クリップボードの画像を貼り付けられませんでした。\n{0}", ex.Message));
             }
         }
 

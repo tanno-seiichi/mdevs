@@ -14,6 +14,7 @@
 //  - コピー：他のアプリ向けの HTML と、mdew どうしで書式を保つ Markdown も一緒にコピーする（clipboard.js）。
 //  - 画像：ダブルクリック・右クリックの「画像を開く」で、既定のアプリで開く（ホストが開く）。
 import { parseBlocks, renderBlock, renderInline, serializeBlock, imageSource, RE_BARE_EMAIL, RE_EMAIL_PREV_CHAR } from './markdown.js';
+import { t } from './i18n.js';
 import {
   MARKDOWN_MIME, setClipboardData, writeClipboard, lastCopiedMarkdown, buildCopyData, buildExcelCopy, buildTableCopy,
   tableFromHtml, tableFromTsv, rowsToMarkdownTable, imageSourcesInRows, cellMarkdown, htmlToMarkdown,
@@ -1319,37 +1320,37 @@ export class Editor {
     const items = [];
     if ('IMG' === e.target.tagName) {
       const src = imageSource(e.target);
-      items.push({ label: '画像を開く', run: () => this.m_handlers.onOpenImage(src) }, null);
+      items.push({ label: t('画像を開く'), run: () => this.m_handlers.onOpenImage(src) }, null);
     }
     if (this.m_readOnly) {
       // 読み取り専用（ヘルプ）：編集しない項目だけ
       items.push(
-        { label: 'コピー', key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
-        { label: 'Excel用にコピー', disabled: !hasSelection, run: () => this.copyForExcel() },
+        { label: t('コピー'), key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
+        { label: t('Excel用にコピー'), disabled: !hasSelection, run: () => this.copyForExcel() },
         null,
-        { label: 'すべて選択', key: 'Ctrl+A', run: () => this.selectAll() },
+        { label: t('すべて選択'), key: 'Ctrl+A', run: () => this.selectAll() },
         null,
-        { label: 'ページトップに戻る', run: () => this.m_handlers.onPageTop() },
-        { label: 'ソースモードに切り替え', run: () => this.m_handlers.onToggleSource() });
+        { label: t('ページトップに戻る'), run: () => this.m_handlers.onPageTop() },
+        { label: t('ソースモードに切り替え'), run: () => this.m_handlers.onToggleSource() });
       showMenu(e.clientX, e.clientY, items, (a_item) => a_item.run());
       return;
     }
     items.push(
-      { label: '切り取り', key: 'Ctrl+X', disabled: !hasSelection, run: () => document.execCommand('cut') },
-      { label: 'コピー', key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
-      { label: 'Excel用にコピー', disabled: !hasSelection, run: () => this.copyForExcel() },
-      { label: '貼り付け', key: 'Ctrl+V', run: () => this.pasteFromClipboard(false) },
-      { label: '書式なしで貼り付け', key: 'Ctrl+Shift+V', run: () => this.pasteFromClipboard(true) },
+      { label: t('切り取り'), key: 'Ctrl+X', disabled: !hasSelection, run: () => document.execCommand('cut') },
+      { label: t('コピー'), key: 'Ctrl+C', disabled: !hasSelection, run: () => document.execCommand('copy') },
+      { label: t('Excel用にコピー'), disabled: !hasSelection, run: () => this.copyForExcel() },
+      { label: t('貼り付け'), key: 'Ctrl+V', run: () => this.pasteFromClipboard(false) },
+      { label: t('書式なしで貼り付け'), key: 'Ctrl+Shift+V', run: () => this.pasteFromClipboard(true) },
       null,
     );
     for (const name of Object.keys(FORMATS)) {
       const state = this.formatState(name);
-      items.push({ label: FORMATS[name].label, key: FORMATS[name].key, checked: state.active, disabled: !state.enabled,
+      items.push({ label: t(FORMATS[name].label), key: FORMATS[name].key, checked: state.active, disabled: !state.enabled,
         run: () => this.applyFormat(name) });
     }
     // リンクにする（mde と同じ。URL を入力するダイアログはホスト側で出す）。選んだ範囲は、URL が届くまで覚えておく
     const linkRange = this.linkableRange();
-    items.push({ label: 'リンクにする…', disabled: !linkRange, run: () => this.m_handlers.onMakeLink(linkRange) });
+    items.push({ label: t('リンクにする…'), disabled: !linkRange, run: () => this.m_handlers.onMakeLink(linkRange) });
     const cell = e.target.closest && e.target.closest('td,th');
     if (!cell || !this.m_root.contains(cell)) {
       // 見出し・表を挿入（mde と同じ。表のセルの上では出さない）。対象は右クリックした段落
@@ -1359,15 +1360,15 @@ export class Editor {
       if (heading) {
         const level = /^H[1-6]$/.test(heading.tagName) ? Number(heading.tagName[1]) : 0;
         items.push({
-          label: level ? `見出し${level}` : '見出し',
+          label: level ? t('見出し{0}', level) : t('見出し'),
           submenu: [0, 1, 2, 3, 4, 5, 6].map((n) => ({
-            label: n ? `${'#'.repeat(n)} 見出し${n}` : '本文（見出しなし）',
+            label: n ? t('{0} 見出し{1}', '#'.repeat(n), n) : t('本文（見出しなし）'),
             checked: n === level,
             run: () => this.setHeadingLevel(heading, n),
           })),
         });
       }
-      items.push({ label: '表を挿入…', run: () => this.m_handlers.onInsertTable(this.topLevelBlock(block)) });
+      items.push({ label: t('表を挿入…'), run: () => this.m_handlers.onInsertTable(this.topLevelBlock(block)) });
     }
     if (cell && this.m_root.contains(cell)) {
       const isHeader = 'TH' === cell.tagName;
@@ -1378,23 +1379,23 @@ export class Editor {
       };
       items.push(
         null,
-        { label: '上に行を挿入', disabled: isHeader, run: table(() => this.insertRow(cell, false)) },
-        { label: '下に行を挿入', key: 'Ctrl+Enter', run: table(() => this.insertRow(cell, true)) },
-        { label: '行を削除', disabled: isHeader, run: table(() => this.deleteRow(cell)) },
+        { label: t('上に行を挿入'), disabled: isHeader, run: table(() => this.insertRow(cell, false)) },
+        { label: t('下に行を挿入'), key: 'Ctrl+Enter', run: table(() => this.insertRow(cell, true)) },
+        { label: t('行を削除'), disabled: isHeader, run: table(() => this.deleteRow(cell)) },
         null,
-        { label: '左に列を挿入', run: table(() => this.insertColumn(cell, false)) },
-        { label: '右に列を挿入', run: table(() => this.insertColumn(cell, true)) },
-        { label: '列を削除', run: table(() => this.deleteColumn(cell)) },
+        { label: t('左に列を挿入'), run: table(() => this.insertColumn(cell, false)) },
+        { label: t('右に列を挿入'), run: table(() => this.insertColumn(cell, true)) },
+        { label: t('列を削除'), run: table(() => this.deleteColumn(cell)) },
         null,
-        { label: '表をコピー', run: () => writeClipboard(buildTableCopy(cell.closest('table'), this.m_handlers.imageFileUrl)) },
-        { label: '表を削除', run: table(() => this.deleteTable(cell)) },
+        { label: t('表をコピー'), run: () => writeClipboard(buildTableCopy(cell.closest('table'), this.m_handlers.imageFileUrl)) },
+        { label: t('表を削除'), run: table(() => this.deleteTable(cell)) },
       );
     }
-    items.push(null, { label: 'すべて選択', key: 'Ctrl+A', run: () => this.selectAll() });
+    items.push(null, { label: t('すべて選択'), key: 'Ctrl+A', run: () => this.selectAll() });
     items.push(null,
-      { label: 'ページトップに戻る', run: () => this.m_handlers.onPageTop() },
-      { label: 'ソースモードに切り替え', run: () => this.m_handlers.onToggleSource() });
-    if (this.m_handlers.onOpenHelp) items.push(null, { label: 'ヘルプを開く', run: () => this.m_handlers.onOpenHelp() });
+      { label: t('ページトップに戻る'), run: () => this.m_handlers.onPageTop() },
+      { label: t('ソースモードに切り替え'), run: () => this.m_handlers.onToggleSource() });
+    if (this.m_handlers.onOpenHelp) items.push(null, { label: t('ヘルプを開く'), run: () => this.m_handlers.onOpenHelp() });
     showMenu(e.clientX, e.clientY, items, (a_item) => a_item.run());
   }
 
@@ -1927,7 +1928,7 @@ export class Editor {
         if (!image && type) image = new File([await item.getType(type)], 'image.png', { type });
       }
     } catch (err) {
-      this.m_handlers.onError('クリップボードを読み取れませんでした。Ctrl+V で貼り付けてください。');
+      this.m_handlers.onError(t('クリップボードを読み取れませんでした。Ctrl+V で貼り付けてください。'));
       return;
     }
     this.focus();

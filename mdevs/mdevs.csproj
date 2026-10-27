@@ -60,6 +60,8 @@
     <!-- ヘルプ（編集画面の右クリックの「ヘルプを開く」で、読み取り専用で開く。MarkdownWebHost.HelpPath） -->
     <None Remove="help\**" />
     <Content Include="help\HELP.md" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 英語のヘルプ（画面の言語が英語の時に開く。MarkdownWebHost.HelpPath） -->
+    <Content Include="help\HELP.en.md" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
     <!-- 「拡張機能の管理」の一覧に表示するアイコン（mdew と同じ絵。source.extension.vsixmanifest の Icon） -->
     <Content Include="images\mde.png" IncludeInVSIX="true" />
     <!-- WebView2 のネイティブ DLL（64bit 用）。拡張機能のフォルダの直下に入れる（MarkdownWebHost.GetEnvironmentAsync） -->

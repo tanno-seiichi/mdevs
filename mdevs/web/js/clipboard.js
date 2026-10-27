@@ -13,6 +13,7 @@
 //
 // クリップボードへの書き込みは、copy イベントで行う（writeClipboard。document.execCommand('copy') で起こす）。
 import { serializeBlock, serializeInline, escapeText, imageSource } from './markdown.js';
+import { t as tr } from './i18n.js';
 
 /** mdew 用の Markdown をクリップボードに入れる時の形式の名前。 */
 export const MARKDOWN_MIME = 'text/x-mdew-markdown';
@@ -193,7 +194,7 @@ export function buildCopyData(a_sel, a_root, a_opts, a_imageUrl) {
     if (url) {
       img.setAttribute('src', url);
     } else {
-      img.replaceWith(`[画像${img.alt ? `: ${img.alt}` : ''}]`);
+      img.replaceWith(img.alt ? tr('[画像: {0}]', img.alt) : tr('[画像]'));
     }
   }
   for (const node of container.querySelectorAll('*')) {
@@ -319,14 +320,14 @@ function appendInlines(a_row, a_nodes, a_imageUrl, a_outerMore) {
 function appendImage(a_row, a_img, a_imageUrl, a_more) {
   const url = a_imageUrl(a_img);
   if (!url) {
-    const placeholder = `[画像${a_img.alt ? `: ${a_img.alt}` : ''}]`;
+    const placeholder = a_img.alt ? tr('[画像: {0}]', a_img.alt) : tr('[画像]');
     a_row.text += placeholder;
     a_row.html += esc(placeholder);
     return;
   }
   a_row.html += `<img src="${esc(url)}"${a_img.width ? ` width="${a_img.width}"` : ''}>`;
   if (a_more) a_row.html += '<br>';
-  a_row.text += '[画像]';
+  a_row.text += tr('[画像]');
   if (a_img.height) a_row.imageHeight = Math.max(a_row.imageHeight, a_img.height);
 }
 
@@ -513,7 +514,7 @@ function collectListRows(a_list, a_range, a_depth, a_rows, a_imageUrl) {
     if (overlaps(a_range, contentsRange(li, firstBlock))) {
       row = newRow(false);
       const box = li.querySelector(':scope > input[type=checkbox]');
-      const marker = box ? (box.checked ? '☑ ' : '☐ ') : ordered ? `${n}. ` : '・ ';
+      const marker = box ? (box.checked ? '☑ ' : '☐ ') : ordered ? `${n}. ` : tr('・ ');
       const prefix = '　　'.repeat(a_depth) + marker;
       row.text = prefix;
       row.html = esc(prefix);

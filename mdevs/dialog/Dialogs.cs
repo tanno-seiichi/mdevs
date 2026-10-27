@@ -86,7 +86,7 @@ namespace mdevs.dialog
         public static StackPanel Buttons(string a_okText, RoutedEventHandler a_onOk)
         {
             var panel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            panel.Children.Add(new Button { Content = "キャンセル", MinWidth = 84, Margin = new Thickness(0, 0, 8, 0), IsCancel = true });
+            panel.Children.Add(new Button { Content = Text.T("キャンセル"), MinWidth = 84, Margin = new Thickness(0, 0, 8, 0), IsCancel = true });
             var ok = new Button { Content = a_okText, MinWidth = 84, IsDefault = true };
             ok.Click += a_onOk;
             panel.Children.Add(ok);
@@ -118,14 +118,14 @@ namespace mdevs.dialog
         /// <summary>ダイアログを作る（行数・列数とも 3 を表示し、行数の欄を選択した状態にする）。</summary>
         public TableSizeDialog()
         {
-            DialogStyles.Apply(this, "表を挿入", 300);
+            DialogStyles.Apply(this, Text.T("表を挿入"), 300);
             var panel = new StackPanel { Margin = new Thickness(22) };
-            panel.Children.Add(DialogStyles.Heading("表のサイズを指定してください"));
-            panel.Children.Add(DialogStyles.Caption("行数（見出し行を含む）"));
+            panel.Children.Add(DialogStyles.Heading(Text.T("表のサイズを指定してください")));
+            panel.Children.Add(DialogStyles.Caption(Text.T("行数（見出し行を含む）")));
             panel.Children.Add(m_rowsBox);
-            panel.Children.Add(DialogStyles.Caption("列数"));
+            panel.Children.Add(DialogStyles.Caption(Text.T("列数")));
             panel.Children.Add(m_colsBox);
-            panel.Children.Add(DialogStyles.Buttons("挿入", OkClick));
+            panel.Children.Add(DialogStyles.Buttons(Text.T("挿入"), OkClick));
             Content = panel;
             Loaded += (s, e) =>
             {
@@ -167,9 +167,9 @@ namespace mdevs.dialog
         /// <summary>ダイアログを作る（URL の欄を選択した状態にする）。</summary>
         public LinkInputDialog()
         {
-            DialogStyles.Apply(this, "リンク", 380);
+            DialogStyles.Apply(this, Text.T("リンク"), 380);
             var panel = new StackPanel { Margin = new Thickness(22) };
-            panel.Children.Add(DialogStyles.Heading("リンク先のURLを入力してください"));
+            panel.Children.Add(DialogStyles.Heading(Text.T("リンク先のURLを入力してください")));
             panel.Children.Add(DialogStyles.Caption("URL"));
             panel.Children.Add(m_urlBox);
             panel.Children.Add(DialogStyles.Buttons("OK", OkClick));
